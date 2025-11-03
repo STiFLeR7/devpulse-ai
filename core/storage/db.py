@@ -1,11 +1,11 @@
 from __future__ import annotations
-import os
-import json
+import os, json
 import aiosqlite
-from typing import Any, List, Dict
+from typing import Any, List, Dict, Optional
 from datetime import datetime
 from dotenv import load_dotenv
-
+# Thin re-export so the rest of your core can import consistently
+from app.store import init_db, upsert_items, latest_items, record_feedback
 load_dotenv()
 
 DB_PATH = os.getenv("DB_PATH", "./devpulse.sqlite")
@@ -58,6 +58,21 @@ class DB:
         q = "INSERT INTO runs (started_at, finished_at, status, meta) VALUES (?, ?, ?, ?)"
         now = datetime.utcnow().isoformat() + "Z"
         await self.conn.execute(q, (now, now, "finished", json.dumps(meta, separators=(",", ":"), ensure_ascii=False)))
+        await self.conn.commit()
+
+    async def find_item_id(self, source: Optional[str], external_id: Optional[str]) -> Optional[int]:
+        if not source or not external_id:
+            return None
+        q = "SELECT id FROM items WHERE source=? AND external_id=? LIMIT 1"
+        cur = await self.conn.execute(q, (source, external_id))
+        row = await cur.fetchone()
+        await cur.close()
+        return int(row["id"]) if row else None
+
+    async def log_event(self, item_id: int, type: str, meta: Dict[str, Any]):
+        q = "INSERT INTO events (item_id, type, ts, meta) VALUES (?, ?, ?, ?)"
+        now = datetime.utcnow().isoformat() + "Z"
+        await self.conn.execute(q, (item_id, type, now, json.dumps(meta, separators=(",", ":"), ensure_ascii=False)))
         await self.conn.commit()
 
     async def close(self):

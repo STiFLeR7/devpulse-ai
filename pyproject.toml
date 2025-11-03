@@ -1,0 +1,19 @@
+[project]
+name = "devpulse-ai"
+version = "0.1.0"
+requires-python = ">=3.10"
+dependencies = [
+  "fastapi",
+  "uvicorn[standard]",
+  "httpx",
+  "pydantic>=2",
+  "pydantic-settings>=2",
+  "SQLAlchemy>=2.0",
+  "alembic",
+  "python-multipart",
+  "feedparser",
+  "orjson",
+]
+
+[tool.uvicorn]
+factory = false

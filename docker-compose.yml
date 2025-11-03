@@ -1,34 +1,21 @@
+version: "3.9"
 services:
-  feeds:
-    image: python:3.11-slim
+  api:
+    image: python:3.12-slim
     working_dir: /app
-    volumes:
-      - ./:/app
-    env_file:
-      - .env
-    command: >
-      bash -lc "
-      pip install -r requirements.txt &&
-      uvicorn core.mcp_servers.feeds_server.server:app
-        --host 0.0.0.0 --port 9001 --log-level info"
-    ports:
-      - "9001:9001"
-
-  bridge:
-    image: python:3.11-slim
-    working_dir: /app
-    volumes:
-      - ./:/app
-    env_file:
-      - .env
-    environment:
-      FEEDS_SERVER_URL: "http://feeds:9001"
-    depends_on:
-      - feeds
-    command: >
-      bash -lc "
-      pip install -r requirements.txt &&
-      uvicorn core.bridge_api.main:app
-        --host 0.0.0.0 --port 8000 --log-level info"
+    command: bash -lc "pip install -U pip && pip install -r requirements.txt && uvicorn app.main:app --host 0.0.0.0 --port 8000"
     ports:
       - "8000:8000"
+    volumes:
+      - ./:/app
+    environment:
+      - BASE_URL=${BASE_URL:-http://127.0.0.1:8000}
+      - BRIDGE_SIGNING_SECRET=${BRIDGE_SIGNING_SECRET:-dev-only}
+      - ENABLE_GITHUB=${ENABLE_GITHUB:-true}
+      - ENABLE_HF=${ENABLE_HF:-true}
+      - ENABLE_MEDIUM=${ENABLE_MEDIUM:-true}
+      - GITHUB_REPOS=${GITHUB_REPOS:-pytorch/pytorch}
+      - GITHUB_TOKEN=${GITHUB_TOKEN:-}
+      - HF_MODELS_LIMIT=${HF_MODELS_LIMIT:-30}
+      - HF_DATASETS_LIMIT=${HF_DATASETS_LIMIT:-30}
+      - MEDIUM_FEEDS=${MEDIUM_FEEDS:-}

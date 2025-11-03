@@ -1,0 +1,7 @@
+{
+  "name": "devpulse-daily-digest",
+  "active": false,
+  "nodes": [
+    { "parameters": { "path": "ingest-run" }, "name": "HTTP Request", "type": "n8n-nodes-base.httpRequest" }
+  ]
+}
