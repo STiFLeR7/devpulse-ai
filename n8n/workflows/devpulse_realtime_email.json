@@ -1,0 +1,146 @@
+{
+  "name": "devpulse_realtime_email",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "devpulse/new-signal",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        0
+      ],
+      "id": "f811f510-5c80-484d-9fe4-52b090c1e5b8",
+      "name": "Webhook",
+      "webhookId": "d7257e46-9962-4e7c-9998-f3a89b39df45"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\n   \"status\": \"received\" \n}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        208,
+        0
+      ],
+      "id": "03c0d558-0475-4da6-b954-54b72ef04c5d",
+      "name": "Respond to Webhook"
+    },
+    {
+      "parameters": {
+        "fromEmail": "hillanijjpatel@gmail.com",
+        "toEmail": "hillaniljppatel@gmail.com",
+        "subject": "=[DevPulse] {{$json.source}} • {{$json.score}} • {{$json.title}}",
+        "html": "=<style>\n  body{font-family:Inter,Arial,sans-serif;}\n  .chip{display:inline-block;background:#eef;border-radius:12px;padding:2px 8px;margin-right:6px}\n  .score{font-weight:700;color:#0a8}\n</style>\n<h2>🚀 DevPulse AI Signal</h2>\n<b>Title:</b> {{$json.title}}<br/>\n<b>Score:</b> <span class=\"score\">{{$json.score}}</span><br/>\n<b>Tags:</b> {{ ($json.tags || []).map(t => `<span class=\"chip\">${t}</span>`).join(' ') }}<br/><br/>\n<b>Summary</b><br/>\n{{$json.summary}}<br/><br/>\n<a href=\"{{$json.url}}\">🔗 Open Source</a><br/><br/>\n<small>ID: {{$json.idempotency_key}} • {{$now}}</small>\n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        624,
+        0
+      ],
+      "id": "b576e0bf-8031-443c-8072-aca1714e23a0",
+      "name": "Send email",
+      "webhookId": "bcc6457d-18aa-4657-ad9c-31c8a6c98ef1",
+      "credentials": {
+        "smtp": {
+          "id": "QptPTy8gacTal2J5",
+          "name": "SMTP account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "7bd95c35-0e60-43df-a817-1ec4bca4c764",
+              "leftValue": "={{ $json.body.score}}",
+              "rightValue": 0.8,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        416,
+        0
+      ],
+      "id": "5205999f-3b98-4193-8c87-4ed17b90b800",
+      "name": "If"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Respond to Webhook": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Send email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "callerPolicy": "workflowsFromSameOwner",
+    "executionTimeout": -1,
+    "availableInMCP": false
+  },
+  "versionId": "47368e59-5358-466d-be41-a7d0ef46f6d8",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "3ed3895028c106ab256aa7d737c7791bccc4edb7c5b9e07115a302db9cdc700d"
+  },
+  "id": "x4Nai9Ql0xN4bLqT",
+  "tags": []
+}

@@ -1,81 +1,79 @@
 # app/main.py
-from __future__ import annotations
+from fastapi import FastAPI, Query, BackgroundTasks
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
+from typing import List, Optional
+from datetime import datetime, timezone
 
-from fastapi import FastAPI, Request, Response, HTTPException
-from fastapi.responses import HTMLResponse, RedirectResponse, PlainTextResponse
-from typing import Any, Dict, List
+from backend.store_factory import get_store
+from app.settings import settings
 
-from .settings import settings
-from .store import init_db, upsert_items, latest_items, record_feedback
-from .renderer import render_html
-from .github_feed import aggregate_all as aggregate_github
+# simple renderer (keep yours if you already have one)
+def render_html_digest(rows):
+    items = "".join(
+        f"<li><a href='{r.get('url','')}' target='_blank'>{r.get('title','(no title)')}</a> "
+        f"[score={r.get('score','-')}]</li>"
+        for r in rows
+    )
+    return f"<h2>DevPulse Digest</h2><ul>{items}</ul>"
 
-app = FastAPI(title="devpulse-ai")
-
-# --- lifecycle ----------------------------------------------------------------
+app = FastAPI(title="DevPulse-AI API")
+store = get_store()
 
 @app.on_event("startup")
-def on_startup():
-    init_db()
+async def startup():
+    await store.init()
 
-# --- helpers ------------------------------------------------------------------
+@app.get("/")
+async def root():
+    # convenience: open digest
+    return RedirectResponse(url="/digest/html")
 
-def _aggregate_all_sources() -> List[Dict[str, Any]]:
-    """
-    Aggregate all enabled sources (currently GitHub only; HF/Medium can be added later).
-    """
-    items: List[Dict[str, Any]] = []
-
-    # ---- GitHub ----
-    repos = settings.github_repos  # List[str] parsed in settings
-    if repos:
-        gh_items = aggregate_github(
-            repos,
-            github_token=settings.github_token,
-            per_repo_limit=settings.github_per_repo_limit,
-            timeout_s=12.0,
-        )
-        items.extend(gh_items)
-
-    # Future: Hugging Face, Medium, etc. (merge here)
-
-    return items
-
-# --- routes -------------------------------------------------------------------
-
-@app.get("/", response_class=RedirectResponse)
-def root() -> RedirectResponse:
-    # Quality-of-life: send to digest page
-    return RedirectResponse(url="/digest/html", status_code=302)
-
-@app.get("/healthz", response_class=PlainTextResponse)
-def healthz() -> str:
-    return "ok"
-
-@app.get("/ingest/run", response_class=PlainTextResponse)
-async def ingest_now() -> str:
-    # Pull from all sources and persist
-    items = _aggregate_all_sources()
-    n = upsert_items(items)
-    return f"ingested={n}"
+@app.get("/digest/json")
+async def digest_json(limit:int=50, tags: Optional[List[str]] = Query(None)):
+    rows = await store.top_digest(limit=limit, tags=tags)
+    return JSONResponse(rows)
 
 @app.get("/digest/html", response_class=HTMLResponse)
-def digest_html() -> HTMLResponse:
-    items = latest_items(limit=settings.digest_limit)
-    html = render_html(items, phase_label=settings.phase_label)
-    return HTMLResponse(html)
+async def digest_html(limit:int=50, tags: Optional[List[str]] = Query(None)):
+    rows = await store.top_digest(limit=limit, tags=tags)
+    return HTMLResponse(render_html_digest(rows))
 
-@app.get("/redirect")
-def redirect(source: str, external_id: str, to: str) -> Response:
-    # (Optional) could record click here
-    return RedirectResponse(url=to, status_code=302)
+@app.get("/healthz")
+async def healthz():
+    mode = "rest"
+    return {"ok": True, "mode": mode}
 
-@app.get("/events/ping", response_class=PlainTextResponse)
-def events_ping(source: str, external_id: str, type: str) -> str:
-    """
-    Record user feedback: type in {"like","dislike"}.
-    """
-    ok = record_feedback(source=source, external_id=external_id, kind=type)
-    if not ok:
-        raise HTTPException(status_code=400, detail="failed to record feedback")
-    return "ok"
+# --------- quick mock ingest to validate end-to-end ----------
+async def _ingest_once_mock():
+    # This writes a high-score item so your n8n email fires.
+    s = get_store()
+    await s.init()
+    src_id = await s.upsert_source(
+        kind="github", name="devpulse-mock", url="https://github.com/devpulse/mock", weight=1.0
+    )
+    now = datetime.now(timezone.utc)
+    origin = f"mock-{int(now.timestamp())}"
+    item_id = await s.insert_item(
+        source_id=src_id, kind="github:repo", origin_id=origin,
+        title="🔥 DevPulse Mock Signal — Quantization speedup",
+        url="https://example.com/devpulse-mock",
+        author="devpulse",
+        summary_raw="Mock raw summary to validate pipeline.",
+        event_time=now,
+    )
+    await s.upsert_enrichment(
+        item_id=item_id,
+        summary_ai="W4A8 adaptive quantization improves RTX 3050 inference by 3.1x.",
+        tags=["LLM","EdgeAI","Quantization"],
+        keywords=["W4A8","adaptive","RTX3050"],
+        embedding=[],  # stored in metadata in REST mode
+        score=0.91,    # > 0.8 so your n8n IF passes
+        metadata={},
+    )
+    await s.set_status(item_id, "enriched")
+    await s.refresh_digest()
+
+@app.post("/ingest/run")
+async def ingest_run(background: BackgroundTasks):
+    background.add_task(_ingest_once_mock)
+    return {"scheduled": True, "mode": "mock"}
