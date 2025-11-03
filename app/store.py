@@ -1,93 +1,180 @@
+import os
 import sqlite3
-from contextlib import contextmanager
 from pathlib import Path
-from datetime import datetime, timezone
+from typing import Any, Dict, Iterable, List, Optional
 
-DB_PATH = Path(__file__).resolve().parents[1] / "devpulse.sqlite"
+# --- Config ---
+DB_PATH = Path(os.getenv("DB_PATH", "./devpulse.sqlite"))
+SCHEMA_PATH = Path("./core/storage/schema.sql")
 
-SCHEMA = """
-PRAGMA journal_mode=WAL;
-CREATE TABLE IF NOT EXISTS items(
-  id INTEGER PRIMARY KEY,
-  source TEXT NOT NULL,
-  external_id TEXT NOT NULL UNIQUE,
-  title TEXT NOT NULL,
-  url TEXT NOT NULL,
-  secondary_url TEXT,
-  published_at TEXT NOT NULL,
-  score INTEGER DEFAULT 0
-);
-CREATE INDEX IF NOT EXISTS ix_items_source_pub ON items(source, published_at DESC);
 
-CREATE TABLE IF NOT EXISTS feedback(
-  id INTEGER PRIMARY KEY,
-  external_id TEXT NOT NULL,
-  etype TEXT NOT NULL,
-  at TEXT NOT NULL DEFAULT (datetime('now')),
-  meta TEXT
-);
-"""
-
-@contextmanager
-def _conn():
-    con = sqlite3.connect(DB_PATH, isolation_level=None, timeout=30)
+# --- Internal helpers ---
+def _connect() -> sqlite3.Connection:
+    con = sqlite3.connect(DB_PATH)
+    con.row_factory = sqlite3.Row
+    # sensible pragmas for single-writer / multi-reader local use
+    con.execute("PRAGMA journal_mode=WAL;")
+    con.execute("PRAGMA synchronous=NORMAL;")
     con.execute("PRAGMA foreign_keys=ON;")
-    try:
-        yield con
-    finally:
-        con.close()
+    return con
 
-def init_db():
-    with _conn() as con:
-        for stmt in SCHEMA.strip().split(";"):
-            s = stmt.strip()
-            if s:
-                con.execute(s)
 
-def upsert_items(items: list[dict]) -> int:
-    if not items:
-        return 0
-    q = """
-    INSERT INTO items(source,external_id,title,url,secondary_url,published_at,score)
-    VALUES(?,?,?,?,?,?,COALESCE(?,0))
-    ON CONFLICT(external_id) DO UPDATE SET
-      title=excluded.title,
-      url=excluded.url,
-      secondary_url=excluded.secondary_url,
-      published_at=excluded.published_at;
+def _apply_schema(con: sqlite3.Connection) -> None:
+    if SCHEMA_PATH.exists():
+        with SCHEMA_PATH.open("r", encoding="utf-8") as f:
+            con.executescript(f.read())
+    else:
+        # Minimal fallback if schema.sql is missing (keeps you unblocked)
+        con.executescript(
+            """
+            CREATE TABLE IF NOT EXISTS items (
+                id INTEGER PRIMARY KEY,
+                source TEXT NOT NULL DEFAULT 'github',
+                external_id TEXT NOT NULL,
+                title TEXT NOT NULL,
+                url TEXT NOT NULL,
+                secondary_url TEXT,
+                created_at TEXT NOT NULL,
+                discovered_at TEXT NOT NULL DEFAULT (datetime('now')),
+                metadata_json TEXT DEFAULT '{}',
+                is_new INTEGER NOT NULL DEFAULT 1,
+                rank_score REAL DEFAULT 0
+            );
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_items_source_external
+                ON items(source, external_id);
+            CREATE INDEX IF NOT EXISTS idx_items_external_id ON items(external_id);
+            CREATE INDEX IF NOT EXISTS idx_items_created_at ON items(created_at);
+            CREATE INDEX IF NOT EXISTS idx_items_discovered_at ON items(discovered_at);
+            CREATE INDEX IF NOT EXISTS idx_items_source_created ON items(source, created_at);
+
+            CREATE TABLE IF NOT EXISTS feedback (
+                id INTEGER PRIMARY KEY,
+                item_id INTEGER NOT NULL,
+                action TEXT NOT NULL, -- e.g., 'like','dismiss','open','share'
+                note TEXT DEFAULT '',
+                created_at TEXT NOT NULL DEFAULT (datetime('now')),
+                FOREIGN KEY (item_id) REFERENCES items(id) ON DELETE CASCADE
+            );
+            """
+        )
+
+    # Optional view that matches our Python access pattern
+    con.executescript(
+        """
+        DROP VIEW IF EXISTS latest_items;
+        CREATE VIEW latest_items AS
+        SELECT
+            id,
+            source,
+            external_id,
+            title,
+            url,
+            COALESCE(secondary_url, '') AS secondary_url,
+            created_at,
+            discovered_at,
+            COALESCE(metadata_json,'{}') AS metadata_json,
+            COALESCE(is_new,0) AS is_new,
+            COALESCE(rank_score,0.0) AS rank_score
+        FROM items;
+        """
+    )
+
+
+# --- Public API used by the app ---
+def init_db() -> None:
     """
-    rows = []
+    Idempotent DB bootstrap. Safe to call at app startup.
+    """
+    DB_PATH.parent.mkdir(parents=True, exist_ok=True)
+    with _connect() as con:
+        _apply_schema(con)
+
+
+def latest_items(limit: int = 50) -> List[Dict[str, Any]]:
+    """
+    Fetch newest items by discovered_at (fallback to created_at).
+    Only uses columns that exist in your current schema.
+    """
+    q = """
+    SELECT
+        id,
+        source,
+        external_id,
+        title,
+        url,
+        COALESCE(secondary_url, '') AS secondary_url,
+        created_at,
+        discovered_at,
+        COALESCE(metadata_json,'{}') AS metadata_json,
+        COALESCE(is_new,0) AS is_new,
+        COALESCE(rank_score,0.0) AS rank_score
+    FROM items
+    ORDER BY datetime(discovered_at) DESC, datetime(created_at) DESC
+    LIMIT ?
+    """
+    with _connect() as con:
+        rows = con.execute(q, (int(limit),)).fetchall()
+        return [dict(r) for r in rows]
+
+
+def upsert_items(items: Iterable[Dict[str, Any]]) -> int:
+    """
+    Upsert items compatible with the current schema.
+
+    Required keys per item:
+      - source, external_id, title, url, created_at
+    Optional:
+      - secondary_url, discovered_at, metadata_json, is_new, rank_score
+    """
+    rows: List[Dict[str, Any]] = []
     for it in items:
-        ts = it.get("published_at")
-        if not isinstance(ts, str):
-            ts = (ts or datetime.now(timezone.utc)).astimezone(timezone.utc).isoformat()
-        rows.append((
-            it["source"], it["external_id"], it["title"], it["url"],
-            it.get("secondary_url"), ts, it.get("score", 0)
-        ))
-    with _conn() as con:
+        rows.append(
+            {
+                "source": it.get("source", "github"),
+                "external_id": it["external_id"],
+                "title": it["title"],
+                "url": it["url"],
+                "secondary_url": it.get("secondary_url"),
+                "created_at": it["created_at"],
+                "discovered_at": it.get("discovered_at"),
+                "metadata_json": it.get("metadata_json", "{}"),
+                "is_new": it.get("is_new", 1),
+                "rank_score": it.get("rank_score", 0.0),
+            }
+        )
+
+    q = """
+    INSERT INTO items (
+        source, external_id, title, url, secondary_url,
+        created_at, discovered_at, metadata_json, is_new, rank_score
+    ) VALUES (
+        :source, :external_id, :title, :url, :secondary_url,
+        :created_at, COALESCE(:discovered_at, datetime('now')),
+        COALESCE(:metadata_json, '{}'),
+        COALESCE(:is_new, 1),
+        COALESCE(:rank_score, 0.0)
+    )
+    ON CONFLICT(source, external_id) DO UPDATE SET
+        title=excluded.title,
+        url=excluded.url,
+        secondary_url=excluded.secondary_url,
+        created_at=excluded.created_at,
+        discovered_at=excluded.discovered_at,
+        metadata_json=excluded.metadata_json,
+        is_new=excluded.is_new,
+        rank_score=excluded.rank_score
+    """
+    with _connect() as con:
         con.executemany(q, rows)
-        cur = con.execute("SELECT changes();")
-        # changes() counts updates too; return inserted/updated count which is fine
-        return cur.fetchone()[0] or 0
+        # total_changes includes updates; good enough as "affected"
+        return con.total_changes
 
-def latest_items(limit: int = 200, sources: list[str] | None = None) -> list[dict]:
-    with _conn() as con:
-        if sources:
-            q = "SELECT source,external_id,title,url,secondary_url,published_at,score FROM items WHERE source IN ({}) ORDER BY published_at DESC LIMIT ?".format(
-                ",".join("?"*len(sources))
-            )
-            cur = con.execute(q, (*sources, limit))
-        else:
-            cur = con.execute("SELECT source,external_id,title,url,secondary_url,published_at,score FROM items ORDER BY published_at DESC LIMIT ?", (limit,))
-        out = []
-        for r in cur.fetchall():
-            out.append({
-                "source": r[0], "external_id": r[1], "title": r[2], "url": r[3],
-                "secondary_url": r[4], "published_at": r[5], "score": r[6]
-            })
-        return out
 
-def record_feedback(external_id: str, etype: str, meta: str | None = None) -> None:
-    with _conn() as con:
-        con.execute("INSERT INTO feedback(external_id, etype, meta) VALUES(?,?,?)", (external_id, etype, meta))
+def record_feedback(item_id: int, action: str, note: Optional[str] = "") -> int:
+    """
+    Attach lightweight user feedback to an item.
+    """
+    q = "INSERT INTO feedback (item_id, action, note) VALUES (?, ?, ?)"
+    with _connect() as con:
+        cur = con.execute(q, (item_id, action, note or ""))
+        return cur.lastrowid
