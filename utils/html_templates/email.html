@@ -1,13 +1,24 @@
+<!-- utils/html_templates/email.html -->
 <!doctype html>
 <html>
-<head>
-  <meta charset="utf-8"/>
-  <style>
-    body{font-family:Inter,Segoe UI,Arial,sans-serif;line-height:1.45;color:#111}
-    a{color:#0a5fff;text-decoration:none}
-  </style>
-</head>
-<body>
-  {{ content|safe }}
-</body>
+  <body style="margin:0;background:#f6f8fb;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f6f8fb;">
+      <tr><td align="center" style="padding:24px;">
+        <table width="720" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,.06);">
+          <tr>
+            <td style="padding:18px 20px;border-bottom:1px solid #eef1f6;">
+              <div style="font-size:18px;font-weight:700;">DevPulse — Daily Digest</div>
+              <div style="font-size:12px;color:#6b7280;">{{DATE}}</div>
+            </td>
+          </tr>
+          {{ROWS}}
+          <tr>
+            <td style="padding:16px 20px;border-top:1px solid #eef1f6;font-size:12px;color:#6b7280;">
+              “Slow is smooth, smooth is fast.” — keep shipping ⚡
+            </td>
+          </tr>
+        </table>
+      </td></tr>
+    </table>
+  </body>
 </html>

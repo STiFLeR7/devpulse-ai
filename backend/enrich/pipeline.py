@@ -1,61 +1,73 @@
-# backend/enrich/pipeline.py
-
-import asyncio
-import httpx
-import math
-from datetime import datetime, timezone
-from sentence_transformers import SentenceTransformer
-
+from __future__ import annotations
+from typing import Dict, Any
+from backend.store_factory import get_store
 from app.settings import settings
-from backend.store_rest import Store
+from core.bridge_api import gemini_client as gc
+
+# optional: n8n + AgentLightning hooks (safe no-ops if you haven't created them)
+try:
+    from backend.integrations.n8n_client import N8NClient
+except Exception:
+    N8NClient = None
+
+try:
+    from core.bridge_api.lightning_client import AgentLightning
+except Exception:
+    AgentLightning = None
+
+# Gemini summarizer (fallbacks inside)
+from core.bridge_api.gemini_client import summarize_rank
 
 
 class EnrichmentEngine:
-    def __init__(self, store: Store):
-        self.store = store
-        self.client = httpx.AsyncClient(timeout=40)
-        self.embed_model = SentenceTransformer(settings.HF_EMBED_MODEL if hasattr(settings, "HF_EMBED_MODEL") else "sentence-transformers/all-MiniLM-L6-v2")
+    def __init__(self, store=None):
+        self.store = store or get_store()
+        self.n8n = N8NClient() if N8NClient else None
+        self.al = AgentLightning() if AgentLightning else None
 
-    async def summarize(self, title: str, text: str, url: str):
-        prompt = f"""
-You are an AI technical analyst.
-Condense and categorize the content into structured JSON:
+    async def run_once(self, limit: int = 25) -> Dict[str, Any]:
+        await self.store.init()
+        rows = await self.store.fetch_unenriched(limit=limit)
+        updated = 0
+        alerted = 0
+        for r in rows:
+            title = r.get("title") or ""
+            raw = r.get("summary_raw") or ""
+            enriched = await summarize_rank(title, raw)
+            score = float(enriched.get("score") or 0.0)
 
-Input:
-Title: {title}
-URL: {url}
-Text: {text}
+            await self.store.upsert_enrichment(
+                item_id=r["id"],
+                summary_ai=enriched.get("summary"),
+                tags=enriched.get("tags", []),
+                keywords=[],
+                embedding=[],
+                score=score,
+                metadata={},
+            )
+            await self.store.set_status(r["id"], "enriched")
+            updated += 1
 
-Output JSON fields:
-- summary (max 80 words, technical, signal-focused)
-- tags (5-8 tags, broad research/tech categories: LLM, Vision, CUDA, Quantization, KD, Agents, Systems, Infra)
-- keywords (8–12 concise technical tokens)
-"""
-        endpoint = (
-            f"https://generativelanguage.googleapis.com/v1beta/models/{getattr(settings, 'GEMINI_MODEL_SUMMARY', 'gemini-1.5-pro')}"
-            f":generateContent?key={settings.GEMINI_API_KEY}"
-        )
-        body = {"contents": [{"parts": [{"text": prompt}]}]}
+            if score >= settings.ALERT_SCORE_THRESHOLD:
+                payload = {
+                    "title": title,
+                    "url": r.get("url"),
+                    "tags": enriched.get("tags", []),
+                    "summary": enriched.get("summary", ""),
+                    "score": score,
+                }
+                # fire-and-forget; ignore errors
+                if self.n8n:
+                    try:
+                        await self.n8n.send_signal(payload)
+                    except Exception:
+                        pass
+                if self.al:
+                    try:
+                        await self.al.trigger("devpulse_high_signal", payload)
+                    except Exception:
+                        pass
+                alerted += 1
 
-        r = await self.client.post(endpoint, json=body)
-        r.raise_for_status()
-        text_out = r.json()["candidates"][0]["content"]["parts"][0]["text"]
-        try:
-            out = eval(text_out)
-        except Exception:
-            out = {"summary": text_out, "tags": [], "keywords": []}
-        return out["summary"], out.get("tags", []), out.get("keywords", [])
-
-    async def embed(self, text: str):
-        try:
-            return self.embed_model.encode(text).tolist()
-        except Exception:
-            return self.embed_model.encode(text).tolist()
-
-    def score_item(self, *, tags, keywords, event_time, src_weight):
-        now = datetime.now(timezone.utc)
-        hours = (now - event_time).total_seconds() / 3600 if event_time else 0
-        decay = math.exp(-math.log(2) * hours / float(getattr(settings, "SCORE_DECAY_HALFLIFE_HRS", 48.0)))
-        richness = min(1.0, (len(tags) + len(keywords)) / 20)
-        score = (0.55 * decay) + (0.35 * (src_weight or 1.0)) + (0.10 * richness)
-        return round(score, 4)
+        await self.store.refresh_digest()
+        return {"updated": updated, "alerted": alerted, "checked": len(rows), "using_gemini": bool(getattr(gc, "_USE_GEMINI", False))}
