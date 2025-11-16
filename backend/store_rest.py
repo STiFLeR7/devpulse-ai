@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from typing import Any, Dict, List, Optional, Sequence
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 
 from backend.db_rest import SupabaseREST
 
@@ -17,20 +17,20 @@ def _utc_iso(dt: Optional[datetime]) -> Optional[str]:
     return dt.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
 
 
+def _utc_iso_now_minus(hours: int) -> str:
+    dt = datetime.now(timezone.utc) - timedelta(hours=max(1, int(hours)))
+    return dt.isoformat().replace("+00:00", "Z")
+
+
 class StoreREST:
     def __init__(self, rest: SupabaseREST):
         self.rest = rest
 
     async def init(self):
-        # REST path needs no warmup; keep for interface compatibility
         return
 
-    # ------------------------------- sources -------------------------------
-
+    # -------------------- sources --------------------
     async def upsert_source(self, kind: str, name: str, url: str, weight: float = 1.0) -> int:
-        """
-        INSERT ... ON CONFLICT (kind,url) DO UPDATE, return id.
-        """
         rows = await self.rest.insert(
             "sources",
             [{"kind": kind, "name": name, "url": url, "weight": weight}],
@@ -40,41 +40,37 @@ class StoreREST:
         )
         if rows and "id" in rows[0]:
             return rows[0]["id"]
-
-        # Fallback read if backend skipped representation
         got = await self.rest.select(
             "sources",
             {"select": "id", "kind": f"eq.{kind}", "url": f"eq.{url}", "limit": "1"},
         )
         return got[0]["id"]
 
-    # -------------------------------- items --------------------------------
-
+    # -------------------- items --------------------
     async def insert_item(
         self,
         *,
         source_id: int,
         kind: str,
         origin_id: str,
-        title: Optional[str],
-        url: Optional[str],
+        title: str,
+        url: str,
         author: Optional[str],
         summary_raw: Optional[str],
         event_time: Optional[datetime],
     ) -> int:
-        """
-        Upsert item uniquely by (kind, origin_id) and return id.
-        """
-        payload = [{
-            "source_id": source_id,
-            "kind": kind,
-            "origin_id": origin_id,
-            "title": title,
-            "url": url,
-            "author": author,
-            "summary_raw": summary_raw,
-            "event_time": _utc_iso(event_time),
-        }]
+        payload = [
+            {
+                "source_id": source_id,
+                "kind": kind,
+                "origin_id": origin_id,
+                "title": title,
+                "url": url,
+                "author": author,
+                "summary_raw": summary_raw,
+                "event_time": _utc_iso(event_time),
+            }
+        ]
         rows = await self.rest.insert(
             "items",
             payload,
@@ -84,7 +80,6 @@ class StoreREST:
         )
         if rows and "id" in rows[0]:
             return rows[0]["id"]
-
         got = await self.rest.select(
             "items",
             {"select": "id", "kind": f"eq.{kind}", "origin_id": f"eq.{origin_id}", "limit": "1"},
@@ -97,32 +92,26 @@ class StoreREST:
     async def mark_published(self, item_id: int):
         await self.set_status(item_id, "published")
 
-    # ----------------------------- enrichment ------------------------------
-
+    # -------------------- enrichment --------------------
     async def upsert_enrichment(
         self,
         item_id: int,
         *,
-        summary_ai: Optional[str],
+        summary_ai: str,
         tags: List[str],
         keywords: List[str],
         embedding: Sequence[float],
         score: float,
         metadata: Dict[str, Any],
     ):
-        """
-        Upsert into item_enriched by unique(item_id).
-        Keep 'embedding' in its own column (jsonb) per schema; metadata stays separate.
-        """
         patch = {
             "item_id": item_id,
             "summary_ai": summary_ai,
-            "tags": tags or [],
-            "keywords": keywords or [],
-            "embedding": list(embedding) if embedding else [],
+            "tags": tags,
+            "keywords": keywords,
             "score": float(score),
-            "metadata": metadata or {},
-            "updated_at": _utc_iso(datetime.now(timezone.utc)),
+            "metadata": {**(metadata or {}), "embedding": list(embedding) if embedding else []},
+            "updated_at": _utc_iso(datetime.utcnow()),
         }
         await self.rest.insert(
             "item_enriched",
@@ -132,67 +121,56 @@ class StoreREST:
             return_representation=False,
         )
 
-    # ------------------------------- digest --------------------------------
-
     async def refresh_digest(self):
-        """
-        Call optional RPC to refresh a materialized view. If not present, ignore.
-        """
         try:
             await self.rest.rpc("refresh_mv_digest", {})
         except Exception:
-            # OK if the function isn't defined (dev mode or plain view)
             pass
 
-    async def top_digest(self, limit: int = 50, tags: Optional[List[str]] = None):
-        """
-        Read from v_digest with optional tag overlap filter.
-        """
+    # -------------------- reads --------------------
+    async def top_digest(self, limit: int = 50, tags: Optional[List[str]] = None, since_hours: Optional[int] = None):
+        params = {
+            "select": "id,kind,title,url,event_time,score,tags,summary_ai",
+            "order": "score.desc,event_time.desc",
+            "limit": str(limit),
+        }
+        if tags:
+            params["tags"] = "ov.{" + ",".join(tags) + "}"
+        if since_hours:
+            from datetime import datetime, timedelta, timezone
+            cutoff = datetime.now(timezone.utc) - timedelta(hours=int(since_hours))
+            iso = cutoff.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
+            params["event_time"] = f"gte.{iso}"
+
+        return await self.rest.select("v_digest", params)
+
+    async def top_digest_since(
+        self,
+        since_hours: int = 24,
+        limit: int = 50,
+        tags: Optional[List[str]] = None,
+    ):
         params: Dict[str, str] = {
             "select": "id,kind,title,url,event_time,score,tags,summary_ai",
             "order": "score.desc,event_time.desc",
             "limit": str(max(1, int(limit))),
+            "event_time": f"gte.{_utc_iso_now_minus(since_hours)}",
         }
         if tags:
-            # PostgREST array overlap: tags=ov.{tag1,tag2}
             params["tags"] = "ov.{" + ",".join(tags) + "}"
         return await self.rest.select("v_digest", params)
 
-    # -------------------------- enrichment picking -------------------------
-
-    async def fetch_unenriched(self, limit: int = 25, score_floor: float = 0.80):
-        limit = max(1, int(limit))
-
-        # Pull a larger recent window and filter in app (simplifies PostgREST filters)
-        params = {
-            "select": "id,title,url,summary_raw,event_time,status,item_enriched!left(summary_ai,score)",
+    async def fetch_unenriched(self, limit: int = 25, since_hours: int = 72):
+        """
+        Anti-join on item_enriched (left join + is null) so we catch anything not yet enriched,
+        regardless of its 'status'. Also restrict to recent 'event_time' to avoid very old backlog.
+        """
+        params: Dict[str, str] = {
+            # left join: item_enriched!left(id); then filter where item_enriched.id is null
+            "select": "id,kind,title,url,author,summary_raw,event_time,source_id,status,created_at,item_enriched!left(id)",
             "order": "created_at.desc",
-            "limit": "200",
+            "limit": str(max(1, int(limit))),
+            "event_time": f"gte.{_utc_iso_now_minus(since_hours)}",
+            "item_enriched.id": "is.null",
         }
-        rows = await self.rest.select("items", params)
-
-        need: list[dict] = []
-        for r in rows:
-            rel = r.get("item_enriched")
-            has_row = isinstance(rel, dict)
-            summary_ai = (rel or {}).get("summary_ai") if has_row else None
-            score = (rel or {}).get("score") if has_row else None
-            needs = (
-                (not has_row) or
-                (summary_ai is None or str(summary_ai).strip() == "") or
-                (score is None or float(score) < float(score_floor)) or
-                (r.get("status") != "enriched")
-            )
-            if needs:
-                need.append({
-                    "id": r["id"],
-                    "title": r.get("title"),
-                    "url": r.get("url"),
-                    "summary_raw": r.get("summary_raw") or "",
-                    "event_time": r.get("event_time"),
-                    "status": r.get("status"),
-                })
-            if len(need) >= limit:
-                break
-        return need
-
+        return await self.rest.select("items", params)

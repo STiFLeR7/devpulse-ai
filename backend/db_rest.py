@@ -1,86 +1,77 @@
-# backend/db_rest.py
-from typing import Any, Dict, List, Optional
+from __future__ import annotations
+
 import httpx
 from app.settings import settings
-
-JSON = Dict[str, Any]
 
 
 class SupabaseREST:
     """
-    Minimal PostgREST client using the Supabase key (service role preferred).
-    Sends both `apikey` and `Authorization: Bearer ...` as required.
+    Minimal async REST client for Supabase/PostgREST.
     """
 
-    def __init__(
-        self,
-        base_url: Optional[str] = None,
-        jwt_key: Optional[str] = None,
-        timeout: float = 20.0,
-    ):
-        self.base = (base_url or settings.SUPABASE_URL).rstrip("/")
-        self.key = (jwt_key or settings.SUPABASE_JWT).strip()
-        if not self.key:
-            raise RuntimeError(
-                "Supabase key missing. Set SUPABASE_SERVICE_ROLE or SUPABASE_KEY in .env"
-            )
-        self.timeout = timeout
-
-    def _headers(self) -> Dict[str, str]:
-        return {
-            "apikey": self.key,
-            "Authorization": f"Bearer {self.key}",
-            "Content-Type": "application/json",
-            "Accept": "application/json",
+    def __init__(self) -> None:
+        self.base = settings.SUPABASE_URL.rstrip("/") + "/rest/v1"
+        self.headers = {
+            "apikey": settings.SUPABASE_JWT,
+            "Authorization": f"Bearer {settings.SUPABASE_JWT}",
         }
 
-    async def select(self, table: str, params: Optional[Dict[str, str]] = None) -> List[JSON]:
-        url = f"{self.base}/rest/v1/{table}"
-        async with httpx.AsyncClient(timeout=self.timeout) as client:
-            r = await client.get(url, headers=self._headers(), params=params or {})
+    # ---- CRUD ----
+    async def select(self, table: str, params: dict):
+        async with httpx.AsyncClient(timeout=30) as s:
+            r = await s.get(f"{self.base}/{table}", params=params, headers=self.headers)
             r.raise_for_status()
             return r.json()
 
     async def insert(
         self,
         table: str,
-        rows: List[JSON],
+        rows,
         *,
         upsert: bool = False,
-        on_conflict: Optional[str] = None,
+        on_conflict: str | None = None,
         return_representation: bool = True,
-    ) -> List[JSON]:
-        url = f"{self.base}/rest/v1/{table}"
-        headers = self._headers()
-        params: Dict[str, str] = {}
-        if upsert:
-            headers["Prefer"] = "resolution=merge-duplicates"
-        if return_representation:
-            headers["Prefer"] = headers.get("Prefer", "") + (
-                ("," if "Prefer" in headers else "") + "return=representation"
-            )
-        if on_conflict:
-            params["on_conflict"] = on_conflict
-        async with httpx.AsyncClient(timeout=self.timeout) as client:
-            r = await client.post(url, headers=headers, params=params, json=rows)
-            r.raise_for_status()
-            return r.json() if r.content else []
-
-    async def update(
-        self, table: str, match: Dict[str, str], patch: JSON, return_representation: bool = False
-    ) -> List[JSON]:
-        url = f"{self.base}/rest/v1/{table}"
-        headers = self._headers()
+    ):
+        headers = dict(self.headers)
         if return_representation:
             headers["Prefer"] = "return=representation"
-        async with httpx.AsyncClient(timeout=self.timeout) as client:
-            r = await client.patch(url, headers=headers, params=match, json=patch)
+        if upsert:
+            headers["Prefer"] = headers.get("Prefer", "") + ",resolution=merge-duplicates"
+        params = {}
+        if on_conflict:
+            params["on_conflict"] = on_conflict
+        async with httpx.AsyncClient(timeout=30) as s:
+            r = await s.post(f"{self.base}/{table}", params=params, headers=headers, json=rows)
             r.raise_for_status()
-            return r.json() if r.content else []
+            return r.json() if return_representation else []
 
-    async def rpc(self, fn: str, args: Optional[JSON] = None) -> Any:
-        url = f"{self.base}/rest/v1/rpc/{fn}"
-        async with httpx.AsyncClient(timeout=self.timeout) as client:
-            r = await client.post(url, headers=self._headers(), json=args or {})
+    async def update(self, table: str, filters: dict, patch: dict):
+        async with httpx.AsyncClient(timeout=30) as s:
+            r = await s.patch(f"{self.base}/{table}", params=filters, headers=self.headers, json=patch)
             r.raise_for_status()
-            return r.json() if r.content else None
+
+            # Some updates return 204 No Content
+            if not r.content or r.status_code == 204:
+                return []
+
+            try:
+                return r.json()
+            except Exception:
+                return []
+
+
+    async def delete(self, table: str, filters: dict):
+        # Example: filters={"url": "ilike.https://example.com/devpulse-mock%"}
+        headers = dict(self.headers)
+        headers["Prefer"] = "return=representation"
+        async with httpx.AsyncClient(timeout=30) as s:
+            r = await s.delete(f"{self.base}/{table}", params=filters, headers=headers)
+            r.raise_for_status()
+            return r.json()
+
+    # ---- RPC ----
+    async def rpc(self, fn: str, args: dict):
+        async with httpx.AsyncClient(timeout=60) as s:
+            r = await s.post(f"{self.base}/rpc/{fn}", headers=self.headers, json=args)
+            r.raise_for_status()
+            return r.json()

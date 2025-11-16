@@ -1,135 +1,193 @@
 # backend/ingest/hf.py
 from __future__ import annotations
-import asyncio
-from datetime import datetime, timezone, timedelta
-from typing import Iterable, Dict, Any, List, Optional
-from huggingface_hub import HfApi
-from app.settings import settings
+from datetime import datetime, timedelta, timezone
+from typing import List, Optional, Dict, Any
+import httpx
+
 from backend.store_factory import get_store
 
-api = HfApi(token=settings.HF_TOKEN)
+HF_API_BASE = "https://huggingface.co/api"
 
-def _now_utc() -> datetime:
-    return datetime.now(timezone.utc)
+def _utc_iso(dt: datetime) -> str:
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
 
-def _safe(s: Optional[str]) -> str:
-    return s or ""
+def _to_dt(s: Optional[str]) -> Optional[datetime]:
+    if not s:
+        return None
+    # HF returns ISO8601 with Z; datetime.fromisoformat can’t parse 'Z' pre-3.11; do a safe path
+    try:
+        if s.endswith("Z"):
+            s = s.replace("Z", "+00:00")
+        return datetime.fromisoformat(s).astimezone(timezone.utc)
+    except Exception:
+        return None
 
-async def _upsert_items(rows: List[Dict[str, Any]]) -> int:
+async def _get_json(client: httpx.AsyncClient, url: str, token: Optional[str]) -> Any:
+    headers = {}
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+    r = await client.get(url, headers=headers)
+    r.raise_for_status()
+    return r.json()
+
+async def _recent_models(token: Optional[str], hours: int, limit: int = 200) -> List[Dict[str, Any]]:
+    """
+    Pull recent models by lastModified (global). If you have an allowlist, use _models_by_ids instead.
+    """
+    cutoff = datetime.now(timezone.utc) - timedelta(hours=hours)
+    params = f"sort=lastModified&direction=-1&limit={limit}"
+    url = f"{HF_API_BASE}/models?{params}"
+
+    async with httpx.AsyncClient(timeout=30) as client:
+        js = await _get_json(client, url, token)
+        out = []
+        for m in js:
+            dt = _to_dt(m.get("lastModified"))
+            if dt and dt >= cutoff:
+                out.append(m)
+        return out
+
+async def _recent_datasets(token: Optional[str], hours: int, limit: int = 200) -> List[Dict[str, Any]]:
+    cutoff = datetime.now(timezone.utc) - timedelta(hours=hours)
+    params = f"sort=lastModified&direction=-1&limit={limit}"
+    url = f"{HF_API_BASE}/datasets?{params}"
+
+    async with httpx.AsyncClient(timeout=30) as client:
+        js = await _get_json(client, url, token)
+        out = []
+        for d in js:
+            dt = _to_dt(d.get("lastModified"))
+            if dt and dt >= cutoff:
+                out.append(d)
+        return out
+
+async def _models_by_ids(ids: List[str], token: Optional[str]) -> List[Dict[str, Any]]:
+    out = []
+    async with httpx.AsyncClient(timeout=30) as client:
+        for mid in ids:
+            url = f"{HF_API_BASE}/models/{mid}"
+            try:
+                js = await _get_json(client, url, token)
+                out.append(js)
+            except httpx.HTTPStatusError:
+                # ignore 404s or private
+                continue
+    return out
+
+async def _datasets_by_ids(ids: List[str], token: Optional[str]) -> List[Dict[str, Any]]:
+    out = []
+    async with httpx.AsyncClient(timeout=30) as client:
+        for did in ids:
+            url = f"{HF_API_BASE}/datasets/{did}"
+            try:
+                js = await _get_json(client, url, token)
+                out.append(js)
+            except httpx.HTTPStatusError:
+                continue
+    return out
+
+async def ingest_hf_models(allow_ids: List[str], token: Optional[str], hours: int = 72) -> int:
+    """
+    Insert/update HF models into items table as kind='hf:model'.
+    """
     store = get_store()
     await store.init()
+
+    # Source row (dedup by kind+url)
     src_id = await store.upsert_source(
-        kind="hf", name="huggingface", url="https://huggingface.co", weight=1.0
+        kind="hf", name="huggingface-models", url="https://huggingface.co/models", weight=1.0
     )
-    count = 0
-    for r in rows:
-        item_id = await store.insert_item(
+
+    # Pick mode: allowlist exact IDs or recent-activity scan
+    if allow_ids:
+        models = await _models_by_ids(allow_ids, token)
+    else:
+        models = await _recent_models(token, hours=hours, limit=200)
+
+    inserted = 0
+    for m in models:
+        mid = m.get("id")
+        if not mid:
+            continue
+        url = f"https://huggingface.co/{mid}"
+        title = f"🤗 HF Model — {mid}"
+        last = _to_dt(m.get("lastModified")) or datetime.now(timezone.utc)
+        origin = f"model:{mid}"
+        await store.insert_item(
             source_id=src_id,
-            kind=r["kind"],                 # "hf:model" or "hf:dataset"
-            origin_id=r["origin_id"],       # stable id + revision
-            title=r["title"],
-            url=r["url"],
-            author=r.get("author"),
-            summary_raw=r.get("summary_raw"),
-            event_time=r["event_time"],
+            kind="hf:model",
+            origin_id=origin,
+            title=title,
+            url=url,
+            author=None,
+            summary_raw=m.get("pipeline_tag") or "",
+            event_time=last,
         )
-        # enrichment is deferred to pipeline (Gemini), but add a mild prior score
-        await store.upsert_enrichment(
-            item_id=item_id,
-            summary_ai=None,
-            tags=r.get("tags", []),
-            keywords=[],
-            embedding=[],
-            score=r.get("score", 0.0),
-            metadata=r.get("metadata", {}),
-        )
-        count += 1
+        inserted += 1
+
+    # Refresh digest/materialized views if any
     await store.refresh_digest()
-    return count
+    return inserted
 
-def _row_from_model(m) -> Dict[str, Any]:
-    # HfApi list_models returns ModelInfo. Use lastModified & sha as revision marker
-    last_mod = getattr(m, "lastModified", None) or getattr(m, "last_modified", None)
-    dt = datetime.fromisoformat(last_mod.replace("Z", "+00:00")) if isinstance(last_mod, str) else _now_utc()
-    model_id = m.id
-    rev = (m.sha or "head")[:12] if hasattr(m, "sha") else "head"
-    url = f"https://huggingface.co/{model_id}"
-    card_tags = list(m.tags or [])
-    title = f"🤗 {model_id} — {m.library_name or 'model'}"
-    return {
-        "kind": "hf:model",
-        "origin_id": f"model:{model_id}:{rev}",
-        "title": title,
-        "url": url,
-        "author": m.author or (model_id.split('/')[0] if '/' in model_id else None),
-        "summary_raw": _safe(m.cardData.get("summary", "")) if getattr(m, "cardData", None) else "",
-        "event_time": dt,
-        "tags": card_tags,
-        "score": 0.82 if "text-generation" in card_tags or "llm" in card_tags else 0.78,
-        "metadata": {
-            "pipeline_tag": getattr(m, "pipeline_tag", None),
-            "likes": getattr(m, "likes", None),
-            "downloads": getattr(m, "downloads", None),
-        },
-    }
+async def ingest_hf_datasets(allow_ids: List[str], token: Optional[str], hours: int = 72) -> int:
+    """
+    Insert/update HF datasets into items table as kind='hf:dataset'.
+    """
+    store = get_store()
+    await store.init()
 
-def _row_from_dataset(d) -> Dict[str, Any]:
-    last_mod = getattr(d, "lastModified", None) or getattr(d, "last_modified", None)
-    dt = datetime.fromisoformat(last_mod.replace("Z", "+00:00")) if isinstance(last_mod, str) else _now_utc()
-    ds_id = d.id
-    rev = (d.sha or "head")[:12] if hasattr(d, "sha") else "head"
-    url = f"https://huggingface.co/datasets/{ds_id}"
-    title = f"📦 {ds_id} — dataset"
-    return {
-        "kind": "hf:dataset",
-        "origin_id": f"dataset:{ds_id}:{rev}",
-        "title": title,
-        "url": url,
-        "author": d.author or (ds_id.split('/')[0] if '/' in ds_id else None),
-        "summary_raw": "",
-        "event_time": dt,
-        "tags": list(d.tags or []),
-        "score": 0.80 if "image" in (d.tags or []) or "audio" in (d.tags or []) else 0.75,
-        "metadata": {
-            "likes": getattr(d, "likes", None),
-            "downloads": getattr(d, "downloads", None),
-        },
-    }
+    src_id = await store.upsert_source(
+        kind="hf", name="huggingface-datasets", url="https://huggingface.co/datasets", weight=1.0
+    )
 
-async def ingest_hf_models(authors_or_ids: Iterable[str] | None = None, per_author_limit: int = 25) -> Dict[str, Any]:
-    authors_or_ids = list(authors_or_ids or settings.HF_MODELS)
-    rows: List[Dict[str, Any]] = []
-    for author in authors_or_ids:
-        try:
-            infos = api.list_models(author=author, sort="lastModified", direction=-1, limit=per_author_limit)
-            for m in infos:
-                rows.append(_row_from_model(m))
-        except Exception as e:
-            # continue on individual failures
-            rows.append({
-                "kind": "log", "origin_id": f"err:model:{author}:{_now_utc().timestamp()}",
-                "title": f"[warn] hf models fetch failed: {author}", "url": "", "event_time": _now_utc(),
-                "summary_raw": str(e), "tags": [], "score": 0.0, "metadata": {}
-            })
-    # filter out log pseudo-rows from insert
-    true_rows = [r for r in rows if r["kind"] != "log"]
-    inserted = await _upsert_items(true_rows)
-    return {"requested": authors_or_ids, "inserted": inserted}
+    if allow_ids:
+        dsets = await _datasets_by_ids(allow_ids, token)
+    else:
+        dsets = await _recent_datasets(token, hours=hours, limit=200)
 
-async def ingest_hf_datasets(authors_or_ids: Iterable[str] | None = None, per_author_limit: int = 25) -> Dict[str, Any]:
-    authors_or_ids = list(authors_or_ids or settings.HF_DATASETS)
-    rows: List[Dict[str, Any]] = []
-    for author in authors_or_ids:
-        try:
-            infos = api.list_datasets(author=author, sort="lastModified", direction=-1, limit=per_author_limit)
-            for d in infos:
-                rows.append(_row_from_dataset(d))
-        except Exception as e:
-            rows.append({
-                "kind": "log", "origin_id": f"err:dataset:{author}:{_now_utc().timestamp()}",
-                "title": f"[warn] hf datasets fetch failed: {author}", "url": "", "event_time": _now_utc(),
-                "summary_raw": str(e), "tags": [], "score": 0.0, "metadata": {}
-            })
-    true_rows = [r for r in rows if r["kind"] != "log"]
-    inserted = await _upsert_items(true_rows)
-    return {"requested": authors_or_ids, "inserted": inserted}
+    inserted = 0
+    for d in dsets:
+        did = d.get("id")
+        if not did:
+            continue
+        url = f"https://huggingface.co/datasets/{did}"
+        title = f"📚 HF Dataset — {did}"
+        last = _to_dt(d.get("lastModified")) or datetime.now(timezone.utc)
+        origin = f"dataset:{did}"
+        await store.insert_item(
+            source_id=src_id,
+            kind="hf:dataset",
+            origin_id=origin,
+            title=title,
+            url=url,
+            author=None,
+            summary_raw=d.get("cardData", {}).get("language", "") if isinstance(d.get("cardData"), dict) else "",
+            event_time=last,
+        )
+        inserted += 1
+
+    await store.refresh_digest()
+    return inserted
+
+# ---- Optional: the read-only peek used by /ingest/hf/sync ----
+async def hf_peek(models_allow: List[str], dsets_allow: List[str], token: Optional[str], hours: int, limit: int = 10) -> Dict[str, Any]:
+    out: Dict[str, Any] = {"models": [], "datasets": []}
+    try:
+        if models_allow:
+            ms = await _models_by_ids(models_allow, token)
+        else:
+            ms = await _recent_models(token, hours=hours, limit=limit)
+        out["models"] = [{"id": m.get("id"), "lastModified": m.get("lastModified")} for m in ms[:limit]]
+    except Exception as e:
+        out["models_error"] = str(e)
+    try:
+        if dsets_allow:
+            ds = await _datasets_by_ids(dsets_allow, token)
+        else:
+            ds = await _recent_datasets(token, hours=hours, limit=limit)
+        out["datasets"] = [{"id": d.get("id"), "lastModified": d.get("lastModified")} for d in ds[:limit]]
+    except Exception as e:
+        out["datasets_error"] = str(e)
+    return out
