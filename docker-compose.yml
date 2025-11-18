@@ -1,21 +1,69 @@
-version: "3.9"
+version: "3.8"
 services:
-  api:
-    image: python:3.12-slim
-    working_dir: /app
-    command: bash -lc "pip install -U pip && pip install -r requirements.txt && uvicorn app.main:app --host 0.0.0.0 --port 8000"
+  db:
+    image: postgres:15
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: devpulse
+      POSTGRES_PASSWORD: devpulsepass
+      POSTGRES_DB: devpulse
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U devpulse"]
+      interval: 10s
+      retries: 5
+
+  n8n:
+    image: n8nio/n8n:latest
+    restart: unless-stopped
+    environment:
+      - DB_TYPE=postgresdb
+      - DB_POSTGRESDB_HOST=db
+      - DB_POSTGRESDB_DATABASE=devpulse
+      - DB_POSTGRESDB_PORT=5432
+      - DB_POSTGRESDB_USER=devpulse
+      - DB_POSTGRESDB_PASSWORD=devpulsepass
+      - N8N_HOST=0.0.0.0
+      - N8N_PORT=5678
+      - N8N_PROTOCOL=http
+      - N8N_BASIC_AUTH_ACTIVE=false
+      - N8N_ENCRYPTION_KEY=${N8N_ENCRYPTION_KEY}
+      - GENERIC_TIMEZONE=Asia/Kolkata
+    ports:
+      - "5678:5678"
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - n8n_data:/home/node/.n8n
+
+  backend:
+    build: .
+    restart: unless-stopped
+    environment:
+      - DATABASE_URL=postgresql://devpulse:devpulsepass@db:5432/devpulse
+      - SUPABASE_URL=${SUPABASE_URL:-}
+      - SUPABASE_JWT=${SUPABASE_JWT:-}
+      - HF_TOKEN=${HF_TOKEN:-}
+      - GITHUB_TOKEN=${GITHUB_TOKEN:-}
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+      - DELTA_HOURS=${DELTA_HOURS:-24}
     ports:
       - "8000:8000"
+    depends_on:
+      - db
     volumes:
-      - ./:/app
-    environment:
-      - BASE_URL=${BASE_URL:-http://127.0.0.1:8000}
-      - BRIDGE_SIGNING_SECRET=${BRIDGE_SIGNING_SECRET:-dev-only}
-      - ENABLE_GITHUB=${ENABLE_GITHUB:-true}
-      - ENABLE_HF=${ENABLE_HF:-true}
-      - ENABLE_MEDIUM=${ENABLE_MEDIUM:-true}
-      - GITHUB_REPOS=${GITHUB_REPOS:-pytorch/pytorch}
-      - GITHUB_TOKEN=${GITHUB_TOKEN:-}
-      - HF_MODELS_LIMIT=${HF_MODELS_LIMIT:-30}
-      - HF_DATASETS_LIMIT=${HF_DATASETS_LIMIT:-30}
-      - MEDIUM_FEEDS=${MEDIUM_FEEDS:-}
+      - ./:/app:cached
+
+  adminer:
+    image: adminer
+    restart: unless-stopped
+    ports:
+      - 8080:8080
+    depends_on:
+      - db
+
+volumes:
+  db_data:
+  n8n_data:

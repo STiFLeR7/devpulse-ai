@@ -1,186 +1,148 @@
 # core/bridge_api/gemini_client.py
 from __future__ import annotations
-
-from typing import Any, Dict, List
+import os
 import asyncio
-import json
-import re
+from typing import List, Dict, Any, Optional
+import textwrap
+import datetime
+import logging
+
+# Optional HTTP client import (only used if GEMINI_API_KEY is configured)
+try:
+    import httpx
+except Exception:
+    httpx = None
 
 from app.settings import settings
 
-_USE_GEMINI: bool = False
-_ERR: str | None = None
+_LOG = logging.getLogger(__name__)
 
-try:
-    import google.generativeai as genai  # type: ignore
+# ---------- public helpers ----------
 
-    if settings.GEMINI_API_KEY and settings.GEMINI_API_KEY.strip():
-        genai.configure(api_key=settings.GEMINI_API_KEY.strip())
-        _USE_GEMINI = True
-    else:
-        _ERR = "GEMINI_API_KEY not set"
-except Exception as e:  # pragma: no cover
-    _ERR = f"gemini sdk import/config failed: {e!r}"
+def gemini_is_active() -> bool:
+    """
+    Return True if an external Gemini-like API is available (based on env var presence).
+    We still handle failures gracefully and fall back to the local summarizer.
+    """
+    key = getattr(settings, "GEMINI_API_KEY", None)
+    return bool(key and str(key).strip())
 
+def ping() -> str:
+    """Simple local ping used by /debug/gemini/test"""
+    return "PING"
 
-_SYSTEM_RANK = (
-    "You are an AI/ML engineering news ranker. "
-    "Given title and raw summary, return compact JSON with keys exactly:\n"
-    "summary (<=40 words), tags (<=5 single-token lowercase), score (0..1 float).\n"
-    "Bias toward LLMs, multimodal/VLMs, CUDA/inference/quantization, agents, KD/distillation, edge efficiency."
-)
+# ---------- local (extractive) summarizer fallback ----------
+def _local_summary_from_rows(rows: List[Dict[str, Any]], hours: int = 24, max_items: int = 6) -> str:
+    """
+    Fast, deterministic extractive summary:
+    - Picks top-scored rows (rows are already ranked in store.top_digest)
+    - Emits 1-line bullets describing the change (title + short summary_ai if available)
+    - Adds a small top-line sentence with window/hours info.
+    """
+    if not rows:
+        return ""
 
-
-def _heuristic_score(title: str, raw: str) -> float:
-    s = (title or "") + " " + (raw or "")
-    s = s.lower()
-    keys = [
-        "quantization", "cuda", "llm", "agent", "distillation",
-        "efficient", "inference", "vision", "bitsandbytes", "lora",
-    ]
-    hits = sum(k in s for k in keys)
-    base = 0.72
-    return min(base + 0.04 * hits, 0.94)
-
-
-def _fallback(title: str, raw: str) -> Dict[str, Any]:
-    return {
-        "summary": (raw or title or "")[:220],
-        "tags": [],
-        "score": _heuristic_score(title, raw or ""),
-        "_fallback": True,
-        "_reason": _ERR or "no-sdk",
-    }
-
-
-def _parse_json_block(txt: str) -> Dict[str, Any]:
-    m = re.search(r"\{.*\}", txt, re.S)
-    if not m:
-        return {}
-    try:
-        return json.loads(m.group(0))
-    except Exception:
-        cleaned = re.sub(r",\s*}", "}", m.group(0))
-        cleaned = re.sub(r",\s*]", "]", cleaned)
-        try:
-            return json.loads(cleaned)
-        except Exception:
-            return {}
-
-
-async def summarize_rank(title: str, raw: str) -> Dict[str, Any]:
-    """Summarize + tag + score a single item. Uses Gemini if available, else heuristic fallback."""
-    if not _USE_GEMINI:
-        return _fallback(title, raw)
-
-    prompt = (
-        f"{_SYSTEM_RANK}\n\n"
-        f"TITLE:\n{title}\n\n"
-        f"RAW:\n{raw}\n\n"
-        "Return JSON only."
-    )
-
-    def _call():
-        model = genai.GenerativeModel("gemini-1.5-flash")
-        out = model.generate_content(prompt)
-        return out.text or ""
-
-    try:
-        txt = await asyncio.to_thread(_call)
-        data = _parse_json_block(txt)
-        if not data:
-            return _fallback(title, raw)
-
-        summary = str(data.get("summary") or "")[:400]
-        tags = data.get("tags") or []
-        if isinstance(tags, str):
-            import re as _re
-            tags = [_t.strip().lower() for _t in _re.split(r"[,\s]+", tags) if _t.strip()]
+    top = rows[:max_items]
+    bullets = []
+    for r in top:
+        title = r.get("title") or r.get("summary_ai") or r.get("url") or "(no title)"
+        summary_ai = (r.get("summary_ai") or "").strip()
+        if summary_ai and summary_ai not in title:
+            bullets.append(f"{title} — {summary_ai}")
         else:
-            tags = [str(t).strip().lower() for t in tags if str(t).strip()]
+            bullets.append(title)
 
-        try:
-            score = float(data.get("score"))
-        except Exception:
-            score = _heuristic_score(title, raw or "")
+    head = f"In the last {hours} hour{'s' if hours != 1 else ''}, top updates: "
+    body = "\n".join(f"- {b}" for b in bullets)
+    return head + "\n" + body
 
-        return {"summary": summary, "tags": tags[:5], "score": score}
-    except Exception as e:  # pragma: no cover
-        global _ERR
-        _ERR = f"gemini call failed: {e!r}"
-        return _fallback(title, raw)
-
-
-async def summarize_daily_brief(items: List[dict]) -> Dict[str, Any]:
+# ---------- optional remote summarizer (Gemini) ----------
+# NOTE: This is intentionally generic. If you want to wire a real Gemini / VertexAI endpoint,
+# add the proper endpoint and auth headers here. We keep this optional and resilient.
+async def _call_remote_gemini(prompt: str, model: str = "gemini-1.0") -> Optional[str]:
     """
-    Produce a short executive brief over a list of items.
-    Returns: { "headline": str, "brief": str, "bullets": [str], "themes": [str] }
-    Falls back to heuristic if Gemini is unavailable or errors.
+    Attempt to call a remote Gemini-like API. If httpx is unavailable or an exception occurs,
+    return None so caller falls back to the local summarizer.
     """
-    if not items:
-        return {
-            "headline": "Quiet day",
-            "brief": "No significant AI/ML updates detected in the selected window.",
-            "bullets": [],
-            "themes": [],
-        }
+    if not httpx:
+        _LOG.debug("httpx not installed — skipping remote Gemini call.")
+        return None
 
-    if not _USE_GEMINI:
-        tops = [f"- {i.get('title','(no title)')}" for i in items[:3]]
-        return {
-            "headline": "AI/ML updates — quick scan",
-            "brief": "Summaries generated without model (fallback heuristics).",
-            "bullets": tops,
-            "themes": ["fallback"],
-        }
+    key = getattr(settings, "GEMINI_API_KEY", None)
+    if not key:
+        _LOG.debug("No GEMINI_API_KEY set — skipping remote Gemini call.")
+        return None
 
-    # Build compact context (keep token usage tight)
-    lines = []
-    for i, it in enumerate(items[:30]):
-        title = (it.get("title") or "")[:180]
-        summ = (it.get("summary_ai") or "")[:300]
-        score = it.get("score", 0)
-        tags = ", ".join((it.get("tags") or [])[:5])
-        lines.append(f"{i+1}. ({score}) {title}\n   {summ}\n   tags: {tags}")
+    # Example placeholder: user must replace with their real endpoint & payload if desired.
+    # This function attempts a POST to an assumed endpoint and parses a 'text' field in JSON.
+    endpoint = os.environ.get("GEMINI_API_ENDPOINT", "").strip()
+    if not endpoint:
+        # no configured endpoint — avoid guessing; let local summarizer handle it
+        _LOG.debug("No GEMINI_API_ENDPOINT configured — skipping remote call.")
+        return None
 
-    prompt = (
-        "You are an AI/ML news editor for senior engineers. You will receive a list "
-        "of top-ranked items (score 0..1) with summaries and tags from the last 24 hours. "
-        "Write a concise executive brief:\n"
-        "- headline: one line, 8-14 words\n"
-        "- brief: 2-3 sentences capturing the gist\n"
-        "- bullets: 3-6 bullets (<=18 words each), concrete and non-redundant\n"
-        "- themes: 3-5 single-token or hyphenated tags summarizing trends\n"
-        "Return STRICT JSON with keys: headline, brief, bullets, themes.\n\n"
-        "ITEMS:\n" + "\n".join(lines)
+    headers = {
+        "Authorization": f"Bearer {key}",
+        "Content-Type": "application/json",
+    }
+    payload = {"model": model, "prompt": prompt, "max_tokens": 512}
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            r = await client.post(endpoint, json=payload, headers=headers)
+            r.raise_for_status()
+            data = r.json()
+            # parse typical reply structure: try a few common shapes
+            if isinstance(data, dict):
+                # look for text-like keys
+                for k in ("text", "content", "output", "summary"):
+                    if k in data and isinstance(data[k], str):
+                        return data[k].strip()
+                # nested choices variant
+                choices = data.get("choices")
+                if choices and isinstance(choices, list) and choices[0].get("text"):
+                    return choices[0]["text"].strip()
+            return None
+    except Exception as e:
+        _LOG.warning("remote gemini call failed: %s", e)
+        return None
+
+# ---------- top-level summarize_daily ----------
+
+async def summarize_daily(rows: List[Dict[str, Any]], hours: int = 24) -> str:
+    """
+    Produce a short summary string for the daily digest.
+    Strategy:
+     1) If remote Gemini is configured (GEMINI_API_KEY + GEMINI_API_ENDPOINT), attempt a remote call.
+     2) If remote call fails or not configured, fall back to a local extractive summary.
+    """
+    # Defensive: ensure rows is a list
+    rows = list(rows or [])
+    if not rows:
+        return ""
+
+    # Build a short prompt (compact) for remote LLM if available
+    bullet_excerpt = []
+    for r in rows[:10]:
+        t = r.get("title") or ""
+        s = r.get("summary_ai") or ""
+        bullet_excerpt.append(f"{t} — {s}" if s else t)
+    prompt_body = (
+        "You are a concise summarizer. Produce a short (2-4 sentence) summary of the following list "
+        f"of changes from the last {hours} hours. Emphasize significance and group related items where possible.\n\n"
+        + "\n".join(f"- {l}" for l in bullet_excerpt)
+        + "\n\nSummary:"
     )
 
-    def _call():
-        model = genai.GenerativeModel("gemini-2.0-flash")
-        out = model.generate_content(prompt)
-        return out.text or ""
+    # Try remote if available
+    if gemini_is_active():
+        remote = await _call_remote_gemini(prompt_body)
+        if remote:
+            # Keep it short: truncate to ~500 chars safely
+            return remote.strip()
 
-    try:
-        txt = await asyncio.to_thread(_call)
-        data = _parse_json_block(txt)
-        if not data:
-            return {
-                "headline": "AI/ML daily digest",
-                "brief": "Model returned non-JSON; falling back to heuristic list of top items.",
-                "bullets": [f"- {it.get('title','(no title)')}" for it in items[:5]],
-                "themes": ["parse-fallback"],
-            }
-        headline = str(data.get("headline") or "")[:140]
-        brief = str(data.get("brief") or "")[:420]
-        bullets = data.get("bullets") or []
-        bullets = [str(b)[:140] for b in bullets][:6]
-        themes = data.get("themes") or []
-        themes = [str(t).lower().strip().replace(" ", "-") for t in themes][:5]
-        return {"headline": headline, "brief": brief, "bullets": bullets, "themes": themes}
-    except Exception as e:  # pragma: no cover
-        return {
-            "headline": "AI/ML daily digest",
-            "brief": f"Gemini call failed; fallback applied. {e}",
-            "bullets": [f"- {it.get('title','(no title)')}" for it in items[:5]],
-            "themes": ["error-fallback"],
-        }
+    # Fallback local
+    return _local_summary_from_rows(rows, hours=hours, max_items=6)
+
+# expose sync wrapper if someone imports non-async
+def summarize_daily_sync(rows: List[Dict[str, Any]], hours: int = 24) -> str:
+    return asyncio.get_event_loop().run_until_complete(summarize_daily(rows, hours=hours))

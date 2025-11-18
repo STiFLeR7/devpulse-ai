@@ -296,26 +296,51 @@ async def ingest_medium_batch(background: BackgroundTasks):
 
 @app.post("/ingest/medium/sync")
 async def ingest_medium_sync(
-    hours: int = 720,
-    backfill: bool = True,
-    force_latest: bool = True,
+    hours: int = 720,  # 30 days
+    backfill: bool = False,
+    force_latest: bool = False,
     min_keep_per_feed: int = 3,
-    limit: int | None = None,
+    limit_peek: int | None = None,
 ):
-    from backend.ingest.medium import ingest_medium_feeds
-    feeds = settings.MEDIUM_FEEDS
-    ins = await ingest_medium_feeds(
-        feeds,
-        hours=hours,
-        backfill=backfill,
-        limit=limit,
-        force_latest=force_latest,
-        min_keep_per_feed=min_keep_per_feed,
-    )
-    rows = await store.top_digest(limit=5)
-    return {"inserted_posts": ins, "sample_top5": rows}
+    """
+    Blocking version for debugging/backfill. Returns inserted counts & a small sample.
+    Improved: captures exceptions and returns diagnostic info so callers don't get opaque 500s.
+    """
+    from backend.ingest.medium import ingest_medium_feeds, peek_medium
 
+    try:
+        # run the actual ingest (this is blocking for debugging/backfill)
+        inserted = await ingest_medium_feeds(
+            settings.MEDIUM_FEEDS,
+            hours=hours,
+            backfill=backfill,
+            limit=limit_peek,
+            force_latest=force_latest,
+            min_keep_per_feed=min_keep_per_feed,
+        )
 
+        # provide a small peek/sample for confirmation
+        peek = await peek_medium(settings.MEDIUM_FEEDS, hours=hours, limit=10)
+        sample = peek.sample[: min(10, len(peek.sample))] if peek and getattr(peek, "sample", None) else []
+        diagnostics = getattr(peek, "diagnostics", None)
+
+        return {"inserted_posts": inserted, "sample_top5": sample, "peek_diagnostics": diagnostics}
+    except Exception as e:
+        import traceback, logging
+
+        LOG = logging.getLogger("app.ingest")
+        LOG.exception("ingest/medium/sync failed")
+        tb = traceback.format_exc()
+        # Return the traceback in JSON (helpful for local debugging — remove in production)
+        return JSONResponse(
+            status_code=500,
+            content={
+                "error": "ingest_medium_sync_failed",
+                "message": str(e),
+                "traceback": tb.splitlines()[-30:],  # last 30 lines of trace
+            },
+        )
+    
 @app.get("/debug/medium/peek")
 async def debug_medium_peek(hours: int = 720, limit: int = 10):
     from backend.ingest.medium import peek_medium
