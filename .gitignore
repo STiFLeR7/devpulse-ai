@@ -3,3 +3,5 @@
 __pycache__/
 *.pyc
 /__pycache__/
+a.py
+backend/tests/data/enrichment_gold.jsonl
