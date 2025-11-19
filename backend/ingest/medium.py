@@ -1,6 +1,7 @@
 # backend/ingest/medium.py
 from __future__ import annotations
 
+import os
 import asyncio
 import hashlib
 import logging
@@ -19,6 +20,7 @@ except Exception:
 
 from backend.store_factory import get_store
 
+INGEST_TARGET = os.getenv("INGEST_TARGET", "v1")
 LOG = logging.getLogger(__name__)
 UA = (
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
@@ -31,8 +33,6 @@ HEADERS = {
     "Accept": "application/rss+xml, application/xml;q=0.9, */*;q=0.8",
     "Accept-Language": "en-US,en;q=0.9",
 }
-
-# --- helpers ---
 
 def _dt_utc(dt: datetime) -> datetime:
     if dt.tzinfo is None:
@@ -68,10 +68,6 @@ def _normalize_url(url: str) -> str:
     return url.split("?")[0].strip().rstrip("/")
 
 def _mk_origin_id(url: str, published: Optional[datetime]) -> str:
-    """
-    Make a compact stable origin id using SHA1 hash of url + timestamp stamp.
-    This avoids very long origin ids and slashes.
-    """
     stamp = published.strftime("%Y%m%d%H%M%S") if published else "na"
     key = f"{_normalize_url(url)}::{stamp}"
     h = hashlib.sha1(key.encode("utf-8")).hexdigest()
@@ -84,13 +80,11 @@ def _clean_text(s: Optional[str]) -> str:
     s = re.sub(r"\s+", " ", s).strip()
     return s
 
-# --- fetch with retries and discovery ---
-
 async def _get_with_retries(client: httpx.AsyncClient, url: str, attempts: int = 3, backoff_base: float = 0.5) -> httpx.Response:
     last_exc = None
     for i in range(attempts):
         try:
-            resp = await client.get(url)
+            resp = await client.get(url, headers=HEADERS)
             resp.raise_for_status()
             return resp
         except Exception as e:
@@ -98,16 +92,9 @@ async def _get_with_retries(client: httpx.AsyncClient, url: str, attempts: int =
             wait = backoff_base * (2 ** i)
             LOG.debug("Fetch failed (%s), attempt %d/%d, retrying in %.2fs", e, i + 1, attempts, wait)
             await asyncio.sleep(wait)
-    # re-raise final exception
     raise last_exc
 
 async def _fetch_rss(url: str) -> Dict[str, Any]:
-    """
-    Attempt to fetch RSS with:
-      1) direct fetch
-      2) if zero entries, try to discover RSS via <link rel="alternate" type="application/rss+xml"> with urljoin
-    Returns dict with keys: feed, entries, __raw__, __src__ or __error__.
-    """
     if feedparser is None:
         return {"__error__": "feedparser package not installed"}
 
@@ -122,7 +109,6 @@ async def _fetch_rss(url: str) -> Dict[str, Any]:
         if getattr(fp, "entries", None):
             return {"feed": getattr(fp, "feed", {}), "entries": getattr(fp, "entries", []), "__raw__": f"len={len(txt)}", "__src__": url}
 
-        # Try discovery from HTML head:
         try:
             m = re.search(
                 r'<link[^>]+rel=["\']alternate["\'][^>]+type=["\']application/(?:rss|atom)\+xml["\'][^>]+href=["\']([^"\']+)["\']',
@@ -173,8 +159,6 @@ def _posts_from_rss(fp: Dict[str, Any]) -> List[Dict[str, Any]]:
     out.sort(key=lambda x: x["event_time"], reverse=True)
     return out
 
-# --- public API ---
-
 @dataclass
 class PeekResult:
     sample: List[Dict[str, Any]]
@@ -199,6 +183,7 @@ async def peek_medium(feeds: List[str], hours: int = 720, limit: int = 10) -> Pe
                     "n_entries": len(rs.get("entries") or []),
                     "n_posts_parsed": len(posts),
                     "raw": rs.get("__raw__"),
+                    "__src__": rs.get("__src__"),
                 }
             )
             samples.extend(posts[: max(0, int(limit))])
@@ -216,9 +201,6 @@ async def ingest_medium_feeds(
     force_latest: bool = False,
     min_keep_per_feed: int = 3,
 ) -> int:
-    """
-    Insert recent posts from feeds. Returns number of inserted items.
-    """
     store = get_store()
     await store.init()
 
@@ -246,7 +228,8 @@ async def ingest_medium_feeds(
 
         for p in kept:
             try:
-                await store.insert_item(
+                # legacy insert
+                item_id = await store.insert_item(
                     source_id=src_id,
                     kind="medium:post",
                     origin_id=p["origin_id"],
@@ -257,10 +240,33 @@ async def ingest_medium_feeds(
                     event_time=p["event_time"],
                 )
                 inserted += 1
+
+                # v2 upsert
+                if INGEST_TARGET in ("v2", "both"):
+                    try:
+                        from backend.ingest.ingest_adapter import upsert_item_v2
+                        item_v2 = {
+                            "id": item_id,
+                            "kind": "medium:post",
+                            "title": p["title"],
+                            "url": p["url"],
+                            "domain": (p["url"].split("//")[-1].split("/")[0]) if p.get("url") else None,
+                            "event_time": p["event_time"].isoformat() if p.get("event_time") else None,
+                            "inferred_time": None,
+                            "score": None,
+                            "tags": None,
+                            "summary_ai": p.get("summary") or "",
+                            "raw_json": p,
+                            "is_suspected_mock": False,
+                            "source": "medium"
+                        }
+                        await upsert_item_v2(item_v2)
+                    except Exception as e:
+                        LOG.warning("ingest_adapter warning (medium): %s", e)
+
             except Exception as e:
                 LOG.warning("insert_item failed for %s: %s", p.get("url"), e)
 
-    # Refresh digest to reflect new content
     try:
         await store.refresh_digest()
     except Exception as e:

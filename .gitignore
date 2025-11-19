@@ -5,3 +5,5 @@ __pycache__/
 /__pycache__/
 a.py
 backend/tests/data/enrichment_gold.jsonl
+n8n_backup/
+n8n_backup_db/

@@ -17,26 +17,19 @@ services:
   n8n:
     image: n8nio/n8n:latest
     restart: unless-stopped
-    environment:
-      - DB_TYPE=postgresdb
-      - DB_POSTGRESDB_HOST=db
-      - DB_POSTGRESDB_DATABASE=devpulse
-      - DB_POSTGRESDB_PORT=5432
-      - DB_POSTGRESDB_USER=devpulse
-      - DB_POSTGRESDB_PASSWORD=devpulsepass
-      - N8N_HOST=0.0.0.0
-      - N8N_PORT=5678
-      - N8N_PROTOCOL=http
-      - N8N_BASIC_AUTH_ACTIVE=false
-      - N8N_ENCRYPTION_KEY=${N8N_ENCRYPTION_KEY}
-      - GENERIC_TIMEZONE=Asia/Kolkata
     ports:
       - "5678:5678"
-    depends_on:
-      db:
-        condition: service_healthy
+    environment:
+      - N8N_BASIC_AUTH_ACTIVE=false           # disable while testing
+      - N8N_BASIC_AUTH_USER=admin             # you can remove if you like
+      - N8N_BASIC_AUTH_PASSWORD=...           # remove or leave (inactive)
+      # remove N8N_ENDPOINT_REST entirely or set it to empty:
+      # - N8N_ENDPOINT_REST=
+      - N8N_DEFAULT_HOST=0.0.0.0
+      - N8N_DISABLE_UI=false
     volumes:
-      - n8n_data:/home/node/.n8n
+      - ./n8n:/home/node/.n8n
+
 
   backend:
     build: .
@@ -49,6 +42,7 @@ services:
       - GITHUB_TOKEN=${GITHUB_TOKEN:-}
       - GEMINI_API_KEY=${GEMINI_API_KEY:-}
       - DELTA_HOURS=${DELTA_HOURS:-24}
+
     ports:
       - "8000:8000"
     depends_on:

@@ -1,10 +1,14 @@
+# backend/ingest/github.py
 from __future__ import annotations
+import os
 import httpx
 from datetime import datetime, timezone
 from typing import Iterable, Optional
 from backend.store_factory import get_store
+import asyncio
 
 GITHUB_API = "https://api.github.com"
+INGEST_TARGET = os.getenv("INGEST_TARGET", "v1")
 
 def _ts(dt: str | None):
     if not dt:
@@ -25,6 +29,7 @@ async def _upsert_release(repo: str, rel: dict):
     summary_raw = rel.get("name") or rel.get("body") or ""
     event_time = _ts(rel.get("published_at") or rel.get("created_at"))
 
+    # legacy insert
     item_id = await store.insert_item(
         source_id=src_id, kind="github:release", origin_id=origin_id,
         title=title, url=url, author=repo.split("/")[0], summary_raw=summary_raw, event_time=event_time
@@ -40,6 +45,31 @@ async def _upsert_release(repo: str, rel: dict):
     )
     await store.set_status(item_id, "enriched")
 
+    # Upsert to v2 if requested (non-blocking)
+    if INGEST_TARGET in ("v2", "both"):
+        try:
+            from backend.ingest.ingest_adapter import upsert_item_v2
+            item_v2 = {
+                "id": item_id,
+                "kind": "github:release",
+                "title": title,
+                "url": url,
+                "domain": (url.split("//")[-1].split("/")[0]) if url else None,
+                "event_time": event_time.isoformat() if event_time else None,
+                "inferred_time": None,
+                "score": 0.85,
+                "tags": ["GitHub","Release"],
+                "summary_ai": summary_raw[:600],
+                "raw_json": rel,
+                "is_suspected_mock": False,
+                "source": "github"
+            }
+            # run in thread to avoid blocking
+            await upsert_item_v2(item_v2)
+        except Exception as e:
+            # don't break ingestion if v2 upsert fails
+            print("ingest_adapter warning (github release):", e)
+
 async def _upsert_tag(repo: str, tag: dict):
     store = get_store()
     await store.init()
@@ -51,6 +81,7 @@ async def _upsert_tag(repo: str, tag: dict):
     url = f"https://github.com/{repo}/releases/tag/{name}"
     event_time = None
 
+    # legacy insert
     item_id = await store.insert_item(
         source_id=src_id, kind="github:tag", origin_id=origin_id,
         title=title, url=url, author=repo.split("/")[0], summary_raw="", event_time=event_time
@@ -65,6 +96,29 @@ async def _upsert_tag(repo: str, tag: dict):
         metadata={"repo": repo, "type": "tag"},
     )
     await store.set_status(item_id, "enriched")
+
+    # v2 upsert (async)
+    if INGEST_TARGET in ("v2", "both"):
+        try:
+            from backend.ingest.ingest_adapter import upsert_item_v2
+            item_v2 = {
+                "id": item_id,
+                "kind": "github:tag",
+                "title": title,
+                "url": url,
+                "domain": (url.split("//")[-1].split("/")[0]) if url else None,
+                "event_time": None,
+                "inferred_time": None,
+                "score": 0.78,
+                "tags": ["GitHub","Tag"],
+                "summary_ai": f"New tag {name} in {repo}.",
+                "raw_json": tag,
+                "is_suspected_mock": False,
+                "source": "github"
+            }
+            await upsert_item_v2(item_v2)
+        except Exception as e:
+            print("ingest_adapter warning (github tag):", e)
 
 async def ingest_github_repos(repos: Iterable[str], token: Optional[str] = None, per_repo_limit: int = 3):
     headers = {"Accept": "application/vnd.github+json"}

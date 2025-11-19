@@ -22,7 +22,7 @@
     },
     {
       "parameters": {
-        "url": "=http://127.0.0.1:8000/digest/html",
+        "url": "=http://backend:8000/digest/json?limit=50",
         "options": {}
       },
       "type": "n8n-nodes-base.httpRequest",
@@ -36,69 +36,29 @@
     },
     {
       "parameters": {
-        "conditions": {
-          "options": {
-            "caseSensitive": true,
-            "leftValue": "",
-            "typeValidation": "strict",
-            "version": 2
-          },
-          "conditions": [
-            {
-              "id": "4db2aebb-a77e-4b33-9b12-6c4f1d26551c",
-              "leftValue": "LLM",
-              "rightValue": "LLM",
-              "operator": {
-                "type": "string",
-                "operation": "contains"
-              }
-            },
-            {
-              "id": "7c4d4831-4c26-45c0-818e-0fdc29f826d6",
-              "leftValue": "EdgeAI",
-              "rightValue": "EdgeAI",
-              "operator": {
-                "type": "string",
-                "operation": "equals",
-                "name": "filter.operator.equals"
-              }
-            },
-            {
-              "id": "bf72fe2f-1fb3-47f1-b475-11561697f64e",
-              "leftValue": "Quantization",
-              "rightValue": "Quantization",
-              "operator": {
-                "type": "string",
-                "operation": "equals",
-                "name": "filter.operator.equals"
-              }
-            }
-          ],
-          "combinator": "and"
-        },
-        "options": {}
+        "functionCode": "/*\n  Filter & Build Email\n  - expects the HTTP Request node to return a JSON array of items\n  - keeps items from the last 24 hours with score >= 0.7\n  - builds an HTML snippet in `data` and returns it as payload\n*/\nconst raw = $node[\"HTTP Request\"].json;\nconst items = Array.isArray(raw) ? raw : (raw || []);\nconst HOURS = 24;\nconst MIN_SCORE = 0.7;\nconst cutoff = new Date(Date.now() - HOURS * 3600 * 1000);\n\nconst filtered = items.filter(it => {\n  try {\n    const t = new Date(it.event_time || it.event_time);\n    const s = Number(it.score || 0);\n    return t >= cutoff && s >= MIN_SCORE;\n  } catch (e) {\n    return false;\n  }\n});\n\nif (!filtered.length) {\n  // no items -> stop workflow (no output means downstream nodes won't execute)\n  return [];\n}\n\nconst htmlItems = filtered.slice(0, 25).map(it => {\n  const title = it.title || '(no title)';\n  const url = it.url || '#';\n  const summary = it.summary_ai || '';\n  const score = (typeof it.score !== 'undefined') ? it.score : '-';\n  return `<li style=\"margin-bottom:8px\"><a href='${url}' target='_blank'>${title}</a> — <em>${summary}</em> <strong>[score=${score}]</strong></li>`;\n}).join('');\n\nconst html = `\n<div style=\"font-family:Inter,Arial,sans-serif;max-width:700px;margin:auto\">\n  <h1 style=\"margin:0 0 8px\">DevPulse — Last ${HOURS}h</h1>\n  <hr style=\"border:0;border-top:1px solid #eee;margin:12px 0\"/>\n  <ul style=\"padding-left:20px\">${htmlItems}</ul>\n  <hr style=\"border:0;border-top:1px solid #eee;margin:12px 0\"/>\n  <p style=\"font-size:12px;color:#999\">Powered by DevPulse-AI · Supabase · n8n</p>\n</div>\n`;\n\nreturn [{ json: { data: html } }];"
       },
-      "type": "n8n-nodes-base.filter",
-      "typeVersion": 2.2,
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
       "position": [
-        -96,
+        -64,
         0
       ],
-      "id": "bf980bc6-9de1-430c-b190-37b4037aac9d",
-      "name": "Filter"
+      "id": "filter-build-email-001",
+      "name": "Filter & Build Email"
     },
     {
       "parameters": {
         "fromEmail": "hillaniljppatel@gmail.com",
         "toEmail": "hillaniljppatel@gmail.com",
-        "subject": "=DevPulse Daily — {{$now.toFormat('dd LLL')}}",
+        "subject": "=DevPulse Daily — {{$now.toFormat('dd LLL yyyy')}}",
         "html": "={{$json[\"data\"]}}",
         "options": {}
       },
       "type": "n8n-nodes-base.emailSend",
       "typeVersion": 2.1,
       "position": [
-        112,
+        160,
         0
       ],
       "id": "6fd6fa40-c1b6-49c7-8a15-ac2ee06cd5eb",
@@ -129,14 +89,14 @@
       "main": [
         [
           {
-            "node": "Filter",
+            "node": "Filter & Build Email",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Filter": {
+    "Filter & Build Email": {
       "main": [
         [
           {

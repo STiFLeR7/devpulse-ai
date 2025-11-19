@@ -1,0 +1,18 @@
+id,kind,name,url,weight,created_at
+1,github,devpulse-mock,https://github.com/devpulse/mock,1,2025-11-03 12:43:04.970234+00
+7,github,pytorch/pytorch,https://github.com/pytorch/pytorch,1,2025-11-03 14:13:30.265327+00
+10,medium,Stories by Hugging Face on Medium,https://medium.com/feed/@huggingface,0.9,2025-11-03 14:13:38.861106+00
+11,medium,https://medium.com/feed/googledevelopers,https://medium.com/feed/googledevelopers,0.9,2025-11-03 14:13:40.162764+00
+13,medium,https://medium.com/feed/meta-ai,https://medium.com/feed/meta-ai,0.9,2025-11-03 14:13:42.083686+00
+16,github,huggingface/transformers,https://github.com/huggingface/transformers,1,2025-11-03 14:13:51.85779+00
+22,github,openai/whisper,https://github.com/openai/whisper,1,2025-11-03 14:14:08.799628+00
+28,github,kubernetes/kubernetes,https://github.com/kubernetes/kubernetes,1,2025-11-03 14:14:24.914963+00
+34,github,google/flax,https://github.com/google/flax,1,2025-11-03 14:14:41.333662+00
+40,github,microsoft/onnxruntime,https://github.com/microsoft/onnxruntime,1,2025-11-03 14:15:00.933136+00
+46,github,apple/ml-stable-diffusion,https://github.com/apple/ml-stable-diffusion,1,2025-11-03 14:15:18.715619+00
+52,github,meta-llama/llama,https://github.com/meta-llama/llama,1,2025-11-03 14:15:36.176876+00
+58,hf,huggingface,https://huggingface.co,1,2025-11-04 04:41:46.723559+00
+417,medium,medium-feeds,https://medium.com,1,2025-11-04 06:51:17.45754+00
+419,rss,medium,https://medium.com,0.9,2025-11-04 07:11:03.859393+00
+508,hf,huggingface-models,https://huggingface.co/models,1,2025-11-07 08:26:01.136064+00
+509,hf,huggingface-datasets,https://huggingface.co/datasets,1,2025-11-07 08:26:05.078468+00

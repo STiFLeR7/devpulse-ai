@@ -1,11 +1,13 @@
 # backend/ingest/hf.py
 from __future__ import annotations
+import os
 from datetime import datetime, timedelta, timezone
 from typing import List, Optional, Dict, Any
 import httpx
 
 from backend.store_factory import get_store
 
+INGEST_TARGET = os.getenv("INGEST_TARGET", "v1")
 HF_API_BASE = "https://huggingface.co/api"
 
 def _utc_iso(dt: datetime) -> str:
@@ -16,7 +18,6 @@ def _utc_iso(dt: datetime) -> str:
 def _to_dt(s: Optional[str]) -> Optional[datetime]:
     if not s:
         return None
-    # HF returns ISO8601 with Z; datetime.fromisoformat can’t parse 'Z' pre-3.11; do a safe path
     try:
         if s.endswith("Z"):
             s = s.replace("Z", "+00:00")
@@ -33,9 +34,6 @@ async def _get_json(client: httpx.AsyncClient, url: str, token: Optional[str]) -
     return r.json()
 
 async def _recent_models(token: Optional[str], hours: int, limit: int = 200) -> List[Dict[str, Any]]:
-    """
-    Pull recent models by lastModified (global). If you have an allowlist, use _models_by_ids instead.
-    """
     cutoff = datetime.now(timezone.utc) - timedelta(hours=hours)
     params = f"sort=lastModified&direction=-1&limit={limit}"
     url = f"{HF_API_BASE}/models?{params}"
@@ -72,7 +70,6 @@ async def _models_by_ids(ids: List[str], token: Optional[str]) -> List[Dict[str,
                 js = await _get_json(client, url, token)
                 out.append(js)
             except httpx.HTTPStatusError:
-                # ignore 404s or private
                 continue
     return out
 
@@ -89,18 +86,13 @@ async def _datasets_by_ids(ids: List[str], token: Optional[str]) -> List[Dict[st
     return out
 
 async def ingest_hf_models(allow_ids: List[str], token: Optional[str], hours: int = 72) -> int:
-    """
-    Insert/update HF models into items table as kind='hf:model'.
-    """
     store = get_store()
     await store.init()
 
-    # Source row (dedup by kind+url)
     src_id = await store.upsert_source(
         kind="hf", name="huggingface-models", url="https://huggingface.co/models", weight=1.0
     )
 
-    # Pick mode: allowlist exact IDs or recent-activity scan
     if allow_ids:
         models = await _models_by_ids(allow_ids, token)
     else:
@@ -115,7 +107,8 @@ async def ingest_hf_models(allow_ids: List[str], token: Optional[str], hours: in
         title = f"🤗 HF Model — {mid}"
         last = _to_dt(m.get("lastModified")) or datetime.now(timezone.utc)
         origin = f"model:{mid}"
-        await store.insert_item(
+        # legacy insert
+        item_id = await store.insert_item(
             source_id=src_id,
             kind="hf:model",
             origin_id=origin,
@@ -127,14 +120,33 @@ async def ingest_hf_models(allow_ids: List[str], token: Optional[str], hours: in
         )
         inserted += 1
 
-    # Refresh digest/materialized views if any
+        # v2 upsert
+        if INGEST_TARGET in ("v2", "both"):
+            try:
+                from backend.ingest.ingest_adapter import upsert_item_v2
+                item_v2 = {
+                    "id": item_id,
+                    "kind": "hf:model",
+                    "title": title,
+                    "url": url,
+                    "domain": (url.split("//")[-1].split("/")[0]) if url else None,
+                    "event_time": last.isoformat() if last else None,
+                    "inferred_time": None,
+                    "score": None,
+                    "tags": None,
+                    "summary_ai": m.get("pipeline_tag") or "",
+                    "raw_json": m,
+                    "is_suspected_mock": False,
+                    "source": "hf"
+                }
+                await upsert_item_v2(item_v2)
+            except Exception as e:
+                print("ingest_adapter warning (hf model):", e)
+
     await store.refresh_digest()
     return inserted
 
 async def ingest_hf_datasets(allow_ids: List[str], token: Optional[str], hours: int = 72) -> int:
-    """
-    Insert/update HF datasets into items table as kind='hf:dataset'.
-    """
     store = get_store()
     await store.init()
 
@@ -156,7 +168,8 @@ async def ingest_hf_datasets(allow_ids: List[str], token: Optional[str], hours: 
         title = f"📚 HF Dataset — {did}"
         last = _to_dt(d.get("lastModified")) or datetime.now(timezone.utc)
         origin = f"dataset:{did}"
-        await store.insert_item(
+        # legacy insert
+        item_id = await store.insert_item(
             source_id=src_id,
             kind="hf:dataset",
             origin_id=origin,
@@ -168,12 +181,35 @@ async def ingest_hf_datasets(allow_ids: List[str], token: Optional[str], hours: 
         )
         inserted += 1
 
+        # v2 upsert
+        if INGEST_TARGET in ("v2", "both"):
+            try:
+                from backend.ingest.ingest_adapter import upsert_item_v2
+                item_v2 = {
+                    "id": item_id,
+                    "kind": "hf:dataset",
+                    "title": title,
+                    "url": url,
+                    "domain": (url.split("//")[-1].split("/")[0]) if url else None,
+                    "event_time": last.isoformat() if last else None,
+                    "inferred_time": None,
+                    "score": None,
+                    "tags": None,
+                    "summary_ai": d.get("cardData", {}).get("language", "") if isinstance(d.get("cardData"), dict) else "",
+                    "raw_json": d,
+                    "is_suspected_mock": False,
+                    "source": "hf"
+                }
+                await upsert_item_v2(item_v2)
+            except Exception as e:
+                print("ingest_adapter warning (hf dataset):", e)
+
     await store.refresh_digest()
     return inserted
 
-# ---- Optional: the read-only peek used by /ingest/hf/sync ----
-async def hf_peek(models_allow: List[str], dsets_allow: List[str], token: Optional[str], hours: int, limit: int = 10) -> Dict[str, Any]:
-    out: Dict[str, Any] = {"models": [], "datasets": []}
+# hf_peek unchanged (no v2 writes)
+async def hf_peek(models_allow: List[str], dsets_allow: List[str], token: Optional[str], hours: int, limit: int = 10):
+    out = {"models": [], "datasets": []}
     try:
         if models_allow:
             ms = await _models_by_ids(models_allow, token)

@@ -1,0 +1,63 @@
+id,item_id,summary_ai,tags,keywords,embedding,score,metadata,updated_at
+15,15,2.9 Release Notes,"[""GitHub"",""Release""]","[""v2.9.0""]",[],0.85,"{""repo"": ""pytorch/pytorch"", ""type"": ""release"", ""embedding"": []}",2025-11-16 13:54:34.503021+00
+16,16,PyTorch 2.8.0 Release,"[""GitHub"",""Release""]","[""v2.8.0""]",[],0.85,"{""repo"": ""pytorch/pytorch"", ""type"": ""release"", ""embedding"": []}",2025-11-16 13:54:37.158866+00
+17,17,"PyTorch 2.7.1 Release, bug fix release","[""GitHub"",""Release""]","[""v2.7.1""]",[],0.85,"{""repo"": ""pytorch/pytorch"", ""type"": ""release"", ""embedding"": []}",2025-11-04 07:22:38.336048+00
+18,18,New tag whc_flight_4 in pytorch/pytorch.,"[""GitHub"",""Tag""]","[""whc_flight_4""]",[],0.78,"{""repo"": ""pytorch/pytorch"", ""type"": ""tag"", ""embedding"": []}",2025-11-16 13:54:39.124673+00
+19,19,New tag whc_flight_2 in pytorch/pytorch.,"[""GitHub"",""Tag""]","[""whc_flight_2""]",[],0.78,"{""repo"": ""pytorch/pytorch"", ""type"": ""tag"", ""embedding"": []}",2025-11-16 13:54:41.492351+00
+20,20,New tag whc_flight_1 in pytorch/pytorch.,"[""GitHub"",""Tag""]","[""whc_flight_1""]",[],0.78,"{""repo"": ""pytorch/pytorch"", ""type"": ""tag"", ""embedding"": []}",2025-11-16 13:54:43.450379+00
+21,21,Patch release v4.57.1,"[""GitHub"",""Release""]","[""v4.57.1""]",[],0.85,"{""repo"": ""huggingface/transformers"", ""type"": ""release"", ""embedding"": []}",2025-11-16 13:54:46.493011+00
+22,22,"v4.57.0: Qwen3-Next, Vault Gemma, Qwen3 VL, LongCat Flash, Flex OLMO, LFM2 VL, BLT, Qwen3 OMNI MoE, Parakeet, EdgeTAM, OLMO3","[""GitHub"",""Release""]","[""v4.57.0""]",[],0.85,"{""repo"": ""huggingface/transformers"", ""type"": ""release"", ""embedding"": []}",2025-11-16 13:54:48.661801+00
+23,23," Patch release v4.56.2","[""GitHub"",""Release""]","[""v4.56.2""]",[],0.85,"{""repo"": ""huggingface/transformers"", ""type"": ""release"", ""embedding"": []}",2025-11-16 13:54:51.392489+00
+24,24,New tag v4.57.1 in huggingface/transformers.,"[""GitHub"",""Tag""]","[""v4.57.1""]",[],0.78,"{""repo"": ""huggingface/transformers"", ""type"": ""tag"", ""embedding"": []}",2025-11-16 13:54:53.45629+00
+25,25,New tag v4.57.0 in huggingface/transformers.,"[""GitHub"",""Tag""]","[""v4.57.0""]",[],0.78,"{""repo"": ""huggingface/transformers"", ""type"": ""tag"", ""embedding"": []}",2025-11-16 13:54:55.156401+00
+26,26,New tag v4.56.2 in huggingface/transformers.,"[""GitHub"",""Tag""]","[""v4.56.2""]",[],0.78,"{""repo"": ""huggingface/transformers"", ""type"": ""tag"", ""embedding"": []}",2025-11-16 13:54:57.132243+00
+27,27,v20250625,"[""GitHub"",""Release""]","[""v20250625""]",[],0.85,"{""repo"": ""openai/whisper"", ""type"": ""release"", ""embedding"": []}",2025-11-16 13:54:59.127252+00
+28,28,v20240930,"[""GitHub"",""Release""]","[""v20240930""]",[],0.85,"{""repo"": ""openai/whisper"", ""type"": ""release"", ""embedding"": []}",2025-11-16 13:55:00.756154+00
+29,29,v20240927,"[""GitHub"",""Release""]","[""v20240927""]",[],0.85,"{""repo"": ""openai/whisper"", ""type"": ""release"", ""embedding"": []}",2025-11-16 13:55:02.197739+00
+30,30,New tag v20250625 in openai/whisper.,"[""GitHub"",""Tag""]","[""v20250625""]",[],0.78,"{""repo"": ""openai/whisper"", ""type"": ""tag"", ""embedding"": []}",2025-11-16 13:55:03.960456+00
+31,31,New tag v20240930 in openai/whisper.,"[""GitHub"",""Tag""]","[""v20240930""]",[],0.78,"{""repo"": ""openai/whisper"", ""type"": ""tag"", ""embedding"": []}",2025-11-16 13:55:06.472436+00
+32,32,New tag v20240927 in openai/whisper.,"[""GitHub"",""Tag""]","[""v20240927""]",[],0.78,"{""repo"": ""openai/whisper"", ""type"": ""tag"", ""embedding"": []}",2025-11-16 13:55:11.608442+00
+33,33,Kubernetes v1.35.0-alpha.2,"[""GitHub"",""Release""]","[""v1.35.0-alpha.2""]",[],0.85,"{""repo"": ""kubernetes/kubernetes"", ""type"": ""release"", ""embedding"": []}",2025-11-04 07:23:14.523381+00
+34,34,Kubernetes v1.35.0-alpha.1,"[""GitHub"",""Release""]","[""v1.35.0-alpha.1""]",[],0.85,"{""repo"": ""kubernetes/kubernetes"", ""type"": ""release"", ""embedding"": []}",2025-11-04 07:23:16.591912+00
+35,35,Kubernetes v1.34.1,"[""GitHub"",""Release""]","[""v1.34.1""]",[],0.85,"{""repo"": ""kubernetes/kubernetes"", ""type"": ""release"", ""embedding"": []}",2025-11-04 07:23:18.685375+00
+36,36,New tag v1.35.0-alpha.2 in kubernetes/kubernetes.,"[""GitHub"",""Tag""]","[""v1.35.0-alpha.2""]",[],0.78,"{""repo"": ""kubernetes/kubernetes"", ""type"": ""tag"", ""embedding"": []}",2025-11-16 13:55:26.833491+00
+37,37,New tag v1.35.0-alpha.1 in kubernetes/kubernetes.,"[""GitHub"",""Tag""]","[""v1.35.0-alpha.1""]",[],0.78,"{""repo"": ""kubernetes/kubernetes"", ""type"": ""tag"", ""embedding"": []}",2025-11-16 13:55:28.264766+00
+38,38,New tag v1.35.0-alpha.0 in kubernetes/kubernetes.,"[""GitHub"",""Tag""]","[""v1.35.0-alpha.0""]",[],0.78,"{""repo"": ""kubernetes/kubernetes"", ""type"": ""tag"", ""embedding"": []}",2025-11-04 07:23:26.211475+00
+39,39,0.12.0,"[""GitHub"",""Release""]","[""v0.12.0""]",[],0.85,"{""repo"": ""google/flax"", ""type"": ""release"", ""embedding"": []}",2025-11-16 13:55:42.878298+00
+40,40,0.11.2,"[""GitHub"",""Release""]","[""v0.11.2""]",[],0.85,"{""repo"": ""google/flax"", ""type"": ""release"", ""embedding"": []}",2025-11-16 13:55:44.345283+00
+41,41,v0.11.1,"[""GitHub"",""Release""]","[""v0.11.1""]",[],0.85,"{""repo"": ""google/flax"", ""type"": ""release"", ""embedding"": []}",2025-11-16 13:55:45.747276+00
+42,42,New tag v0.12.0 in google/flax.,"[""GitHub"",""Tag""]","[""v0.12.0""]",[],0.78,"{""repo"": ""google/flax"", ""type"": ""tag"", ""embedding"": []}",2025-11-16 13:55:47.580103+00
+43,43,New tag v0.11.2 in google/flax.,"[""GitHub"",""Tag""]","[""v0.11.2""]",[],0.78,"{""repo"": ""google/flax"", ""type"": ""tag"", ""embedding"": []}",2025-11-16 13:55:49.012538+00
+44,44,New tag v0.11.1 in google/flax.,"[""GitHub"",""Tag""]","[""v0.11.1""]",[],0.78,"{""repo"": ""google/flax"", ""type"": ""tag"", ""embedding"": []}",2025-11-16 13:55:50.464131+00
+45,45,ONNX Runtime v1.23.2,"[""GitHub"",""Release""]","[""v1.23.2""]",[],0.85,"{""repo"": ""microsoft/onnxruntime"", ""type"": ""release"", ""embedding"": []}",2025-11-16 13:55:53.060567+00
+46,46,ONNX Runtime v1.23.1,"[""GitHub"",""Release""]","[""v1.23.1""]",[],0.85,"{""repo"": ""microsoft/onnxruntime"", ""type"": ""release"", ""embedding"": []}",2025-11-16 13:55:54.492915+00
+47,47,ONNX Runtime v1.23.0,"[""GitHub"",""Release""]","[""v1.23.0""]",[],0.85,"{""repo"": ""microsoft/onnxruntime"", ""type"": ""release"", ""embedding"": []}",2025-11-16 13:55:55.902011+00
+48,48,New tag v1.23.2 in microsoft/onnxruntime.,"[""GitHub"",""Tag""]","[""v1.23.2""]",[],0.78,"{""repo"": ""microsoft/onnxruntime"", ""type"": ""tag"", ""embedding"": []}",2025-11-16 13:55:58.694884+00
+49,49,New tag v1.23.1 in microsoft/onnxruntime.,"[""GitHub"",""Tag""]","[""v1.23.1""]",[],0.78,"{""repo"": ""microsoft/onnxruntime"", ""type"": ""tag"", ""embedding"": []}",2025-11-16 13:56:03.145081+00
+50,50,New tag v1.23.0 in microsoft/onnxruntime.,"[""GitHub"",""Tag""]","[""v1.23.0""]",[],0.78,"{""repo"": ""microsoft/onnxruntime"", ""type"": ""tag"", ""embedding"": []}",2025-11-16 13:56:04.588738+00
+51,51,1.1.1,"[""GitHub"",""Release""]","[""1.1.1""]",[],0.85,"{""repo"": ""apple/ml-stable-diffusion"", ""type"": ""release"", ""embedding"": []}",2025-11-16 13:56:06.501935+00
+52,52,1.1.0,"[""GitHub"",""Release""]","[""1.1.0""]",[],0.85,"{""repo"": ""apple/ml-stable-diffusion"", ""type"": ""release"", ""embedding"": []}",2025-11-16 13:56:07.990906+00
+53,53,1.0.0,"[""GitHub"",""Release""]","[""1.0.0""]",[],0.85,"{""repo"": ""apple/ml-stable-diffusion"", ""type"": ""release"", ""embedding"": []}",2025-11-16 13:56:09.431003+00
+54,54,New tag 1.1.1 in apple/ml-stable-diffusion.,"[""GitHub"",""Tag""]","[""1.1.1""]",[],0.78,"{""repo"": ""apple/ml-stable-diffusion"", ""type"": ""tag"", ""embedding"": []}",2025-11-16 13:56:11.561058+00
+55,55,New tag 1.1.0 in apple/ml-stable-diffusion.,"[""GitHub"",""Tag""]","[""1.1.0""]",[],0.78,"{""repo"": ""apple/ml-stable-diffusion"", ""type"": ""tag"", ""embedding"": []}",2025-11-16 13:56:13.053538+00
+56,56,New tag 1.0.0 in apple/ml-stable-diffusion.,"[""GitHub"",""Tag""]","[""1.0.0""]",[],0.78,"{""repo"": ""apple/ml-stable-diffusion"", ""type"": ""tag"", ""embedding"": []}",2025-11-16 13:56:15.350715+00
+57,57,New tag v2 in meta-llama/llama.,"[""GitHub"",""Tag""]","[""v2""]",[],0.78,"{""repo"": ""meta-llama/llama"", ""type"": ""tag"", ""embedding"": []}",2025-11-16 13:56:19.784725+00
+601,482,"PyTorch 2.9.1 Release, bug fix release","[""GitHub"",""Release""]","[""v2.9.1""]",,0.85,"{""repo"": ""pytorch/pytorch"", ""type"": ""release"", ""embedding"": []}",2025-11-16 13:54:31.943296+00
+602,484,Building for an Open Future - our new partnership with Google Cloud,"[""Blog"",""HF""]",[],,0.72,"{""source"": ""rss"", ""embedding"": []}",2025-11-16 13:54:32.128312+00
+604,470,Building a Healthcare Robot from Simulation to Deployment with NVIDIA Isaac,"[""Blog"",""HF""]",[],,0.72,"{""source"": ""rss"", ""embedding"": []}",2025-11-16 13:54:34.68419+00
+606,471,Voice Cloning with Consent,"[""Blog"",""HF""]",[],,0.72,"{""source"": ""rss"", ""embedding"": []}",2025-11-16 13:54:36.43679+00
+607,472,Streaming datasets: 100x More Efficient,"[""Blog"",""HF""]",[],,0.72,"{""source"": ""rss"", ""embedding"": []}",2025-11-16 13:54:39.678813+00
+609,473,huggingface_hub v1.0: Five Years of Building the Foundation of Open Machine Learning,"[""Blog"",""HF""]",[],,0.72,"{""source"": ""rss"", ""embedding"": []}",2025-11-16 13:54:41.291941+00
+611,474,LeRobot v0.4.0: Supercharging OSS Robot Learning,"[""Blog"",""HF""]",[],,0.72,"{""source"": ""rss"", ""embedding"": []}",2025-11-16 13:54:42.918397+00
+612,475,Building the Open Agent Ecosystem Together: Introducing OpenEnv,"[""Blog"",""HF""]",[],,0.78,"{""source"": ""rss"", ""embedding"": []}",2025-11-16 13:54:44.527007+00
+615,476,Hugging Face and VirusTotal collaborate to strengthen AI security,"[""Blog"",""HF""]",[],,0.72,"{""source"": ""rss"", ""embedding"": []}",2025-11-16 13:54:45.770677+00
+616,477,Sentence Transformers is joining Hugging Face!,"[""Blog"",""HF""]",[],,0.72,"{""source"": ""rss"", ""embedding"": []}",2025-11-16 13:54:47.401972+00
+618,478,Supercharge your OCR Pipelines with Open Models,"[""Blog"",""HF""]",[],,0.72,"{""source"": ""rss"", ""embedding"": []}",2025-11-16 13:54:49.401728+00
+620,479,Unlock the power of images with AI Sheets,"[""Blog"",""HF"",""Multimodal""]",[],,0.72,"{""source"": ""rss"", ""embedding"": []}",2025-11-16 13:54:50.857633+00
+630,515,Kubernetes v1.34.2,"[""GitHub"",""Release""]","[""v1.34.2""]",,0.85,"{""repo"": ""kubernetes/kubernetes"", ""type"": ""release"", ""embedding"": []}",2025-11-16 13:55:16.546383+00
+631,516,Kubernetes v1.33.6,"[""GitHub"",""Release""]","[""v1.33.6""]",,0.85,"{""repo"": ""kubernetes/kubernetes"", ""type"": ""release"", ""embedding"": []}",2025-11-16 13:55:18.761892+00
+632,517,Kubernetes v1.32.10,"[""GitHub"",""Release""]","[""v1.32.10""]",,0.85,"{""repo"": ""kubernetes/kubernetes"", ""type"": ""release"", ""embedding"": []}",2025-11-16 13:55:20.396794+00
+633,518,New tag v1.35.0-alpha.3 in kubernetes/kubernetes.,"[""GitHub"",""Tag""]","[""v1.35.0-alpha.3""]",,0.78,"{""repo"": ""kubernetes/kubernetes"", ""type"": ""tag"", ""embedding"": []}",2025-11-16 13:55:23.570988+00
+763,668,W4A8 adaptive quantization improves RTX 3050 inference.,"[""LLM"",""EdgeAI"",""Quantization""]","[""W4A8"",""adaptive"",""RTX3050""]",,0.9,"{""embedding"": []}",2025-11-18 17:04:36.979389+00
+764,669,W4A8 adaptive quantization improves RTX 3050 inference.,"[""LLM"",""EdgeAI"",""Quantization""]","[""W4A8"",""adaptive"",""RTX3050""]",,0.78,"{""embedding"": []}",2025-11-18 17:07:22.840769+00
+765,670,W4A8 adaptive quantization improves RTX 3050 inference.,"[""LLM"",""EdgeAI"",""Quantization""]","[""W4A8"",""adaptive"",""RTX3050""]",,0.96,"{""embedding"": []}",2025-11-19 15:15:16.502017+00

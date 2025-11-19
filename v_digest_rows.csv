@@ -1,0 +1,62 @@
+id,kind,title,url,event_time,score,tags,summary_ai
+15,github:release,🔖 pytorch/pytorch — v2.9.0,https://github.com/pytorch/pytorch/releases/tag/v2.9.0,2025-10-15 17:12:27+00,0.85,"[""GitHub"",""Release""]",2.9 Release Notes
+16,github:release,🔖 pytorch/pytorch — v2.8.0,https://github.com/pytorch/pytorch/releases/tag/v2.8.0,2025-08-06 17:06:10+00,0.85,"[""GitHub"",""Release""]",PyTorch 2.8.0 Release
+17,github:release,🔖 pytorch/pytorch — v2.7.1,https://github.com/pytorch/pytorch/releases/tag/v2.7.1,2025-06-04 18:13:15+00,0.85,"[""GitHub"",""Release""]","PyTorch 2.7.1 Release, bug fix release"
+18,github:tag,🏷️ pytorch/pytorch — Tag whc_flight_4,https://github.com/pytorch/pytorch/releases/tag/whc_flight_4,,0.78,"[""GitHub"",""Tag""]",New tag whc_flight_4 in pytorch/pytorch.
+19,github:tag,🏷️ pytorch/pytorch — Tag whc_flight_2,https://github.com/pytorch/pytorch/releases/tag/whc_flight_2,,0.78,"[""GitHub"",""Tag""]",New tag whc_flight_2 in pytorch/pytorch.
+20,github:tag,🏷️ pytorch/pytorch — Tag whc_flight_1,https://github.com/pytorch/pytorch/releases/tag/whc_flight_1,,0.78,"[""GitHub"",""Tag""]",New tag whc_flight_1 in pytorch/pytorch.
+21,github:release,🔖 huggingface/transformers — v4.57.1,https://github.com/huggingface/transformers/releases/tag/v4.57.1,2025-10-14 15:39:34+00,0.85,"[""GitHub"",""Release""]",Patch release v4.57.1
+22,github:release,🔖 huggingface/transformers — v4.57.0,https://github.com/huggingface/transformers/releases/tag/v4.57.0,2025-10-03 17:04:51+00,0.85,"[""GitHub"",""Release""]","v4.57.0: Qwen3-Next, Vault Gemma, Qwen3 VL, LongCat Flash, Flex OLMO, LFM2 VL, BLT, Qwen3 OMNI MoE, Parakeet, EdgeTAM, OLMO3"
+23,github:release,🔖 huggingface/transformers — v4.56.2,https://github.com/huggingface/transformers/releases/tag/v4.56.2,2025-09-17 09:13:17+00,0.85,"[""GitHub"",""Release""]"," Patch release v4.56.2"
+24,github:tag,🏷️ huggingface/transformers — Tag v4.57.1,https://github.com/huggingface/transformers/releases/tag/v4.57.1,,0.78,"[""GitHub"",""Tag""]",New tag v4.57.1 in huggingface/transformers.
+25,github:tag,🏷️ huggingface/transformers — Tag v4.57.0,https://github.com/huggingface/transformers/releases/tag/v4.57.0,,0.78,"[""GitHub"",""Tag""]",New tag v4.57.0 in huggingface/transformers.
+26,github:tag,🏷️ huggingface/transformers — Tag v4.56.2,https://github.com/huggingface/transformers/releases/tag/v4.56.2,,0.78,"[""GitHub"",""Tag""]",New tag v4.56.2 in huggingface/transformers.
+27,github:release,🔖 openai/whisper — v20250625,https://github.com/openai/whisper/releases/tag/v20250625,2025-06-26 01:06:09+00,0.85,"[""GitHub"",""Release""]",v20250625
+28,github:release,🔖 openai/whisper — v20240930,https://github.com/openai/whisper/releases/tag/v20240930,2024-09-30 18:21:20+00,0.85,"[""GitHub"",""Release""]",v20240930
+29,github:release,🔖 openai/whisper — v20240927,https://github.com/openai/whisper/releases/tag/v20240927,2024-09-27 23:44:27+00,0.85,"[""GitHub"",""Release""]",v20240927
+30,github:tag,🏷️ openai/whisper — Tag v20250625,https://github.com/openai/whisper/releases/tag/v20250625,,0.78,"[""GitHub"",""Tag""]",New tag v20250625 in openai/whisper.
+31,github:tag,🏷️ openai/whisper — Tag v20240930,https://github.com/openai/whisper/releases/tag/v20240930,,0.78,"[""GitHub"",""Tag""]",New tag v20240930 in openai/whisper.
+32,github:tag,🏷️ openai/whisper — Tag v20240927,https://github.com/openai/whisper/releases/tag/v20240927,,0.78,"[""GitHub"",""Tag""]",New tag v20240927 in openai/whisper.
+33,github:release,🔖 kubernetes/kubernetes — v1.35.0-alpha.2,https://github.com/kubernetes/kubernetes/releases/tag/v1.35.0-alpha.2,2025-10-22 22:03:54+00,0.85,"[""GitHub"",""Release""]",Kubernetes v1.35.0-alpha.2
+34,github:release,🔖 kubernetes/kubernetes — v1.35.0-alpha.1,https://github.com/kubernetes/kubernetes/releases/tag/v1.35.0-alpha.1,2025-10-08 14:22:33+00,0.85,"[""GitHub"",""Release""]",Kubernetes v1.35.0-alpha.1
+35,github:release,🔖 kubernetes/kubernetes — v1.34.1,https://github.com/kubernetes/kubernetes/releases/tag/v1.34.1,2025-09-10 03:28:09+00,0.85,"[""GitHub"",""Release""]",Kubernetes v1.34.1
+36,github:tag,🏷️ kubernetes/kubernetes — Tag v1.35.0-alpha.2,https://github.com/kubernetes/kubernetes/releases/tag/v1.35.0-alpha.2,,0.78,"[""GitHub"",""Tag""]",New tag v1.35.0-alpha.2 in kubernetes/kubernetes.
+37,github:tag,🏷️ kubernetes/kubernetes — Tag v1.35.0-alpha.1,https://github.com/kubernetes/kubernetes/releases/tag/v1.35.0-alpha.1,,0.78,"[""GitHub"",""Tag""]",New tag v1.35.0-alpha.1 in kubernetes/kubernetes.
+38,github:tag,🏷️ kubernetes/kubernetes — Tag v1.35.0-alpha.0,https://github.com/kubernetes/kubernetes/releases/tag/v1.35.0-alpha.0,,0.78,"[""GitHub"",""Tag""]",New tag v1.35.0-alpha.0 in kubernetes/kubernetes.
+39,github:release,🔖 google/flax — v0.12.0,https://github.com/google/flax/releases/tag/v0.12.0,2025-09-25 23:58:17+00,0.85,"[""GitHub"",""Release""]",0.12.0
+40,github:release,🔖 google/flax — v0.11.2,https://github.com/google/flax/releases/tag/v0.11.2,2025-08-28 17:55:52+00,0.85,"[""GitHub"",""Release""]",0.11.2
+41,github:release,🔖 google/flax — v0.11.1,https://github.com/google/flax/releases/tag/v0.11.1,2025-08-08 21:25:29+00,0.85,"[""GitHub"",""Release""]",v0.11.1
+42,github:tag,🏷️ google/flax — Tag v0.12.0,https://github.com/google/flax/releases/tag/v0.12.0,,0.78,"[""GitHub"",""Tag""]",New tag v0.12.0 in google/flax.
+43,github:tag,🏷️ google/flax — Tag v0.11.2,https://github.com/google/flax/releases/tag/v0.11.2,,0.78,"[""GitHub"",""Tag""]",New tag v0.11.2 in google/flax.
+44,github:tag,🏷️ google/flax — Tag v0.11.1,https://github.com/google/flax/releases/tag/v0.11.1,,0.78,"[""GitHub"",""Tag""]",New tag v0.11.1 in google/flax.
+45,github:release,🔖 microsoft/onnxruntime — v1.23.2,https://github.com/microsoft/onnxruntime/releases/tag/v1.23.2,2025-10-25 04:15:21+00,0.85,"[""GitHub"",""Release""]",ONNX Runtime v1.23.2
+46,github:release,🔖 microsoft/onnxruntime — v1.23.1,https://github.com/microsoft/onnxruntime/releases/tag/v1.23.1,2025-10-08 04:12:55+00,0.85,"[""GitHub"",""Release""]",ONNX Runtime v1.23.1
+47,github:release,🔖 microsoft/onnxruntime — v1.23.0,https://github.com/microsoft/onnxruntime/releases/tag/v1.23.0,2025-09-26 04:33:48+00,0.85,"[""GitHub"",""Release""]",ONNX Runtime v1.23.0
+48,github:tag,🏷️ microsoft/onnxruntime — Tag v1.23.2,https://github.com/microsoft/onnxruntime/releases/tag/v1.23.2,,0.78,"[""GitHub"",""Tag""]",New tag v1.23.2 in microsoft/onnxruntime.
+49,github:tag,🏷️ microsoft/onnxruntime — Tag v1.23.1,https://github.com/microsoft/onnxruntime/releases/tag/v1.23.1,,0.78,"[""GitHub"",""Tag""]",New tag v1.23.1 in microsoft/onnxruntime.
+50,github:tag,🏷️ microsoft/onnxruntime — Tag v1.23.0,https://github.com/microsoft/onnxruntime/releases/tag/v1.23.0,,0.78,"[""GitHub"",""Tag""]",New tag v1.23.0 in microsoft/onnxruntime.
+51,github:release,🔖 apple/ml-stable-diffusion — 1.1.1,https://github.com/apple/ml-stable-diffusion/releases/tag/1.1.1,2024-05-04 01:05:33+00,0.85,"[""GitHub"",""Release""]",1.1.1
+52,github:release,🔖 apple/ml-stable-diffusion — 1.1.0,https://github.com/apple/ml-stable-diffusion/releases/tag/1.1.0,2023-09-28 14:28:21+00,0.85,"[""GitHub"",""Release""]",1.1.0
+53,github:release,🔖 apple/ml-stable-diffusion — 1.0.0,https://github.com/apple/ml-stable-diffusion/releases/tag/1.0.0,2023-06-14 15:48:40+00,0.85,"[""GitHub"",""Release""]",1.0.0
+54,github:tag,🏷️ apple/ml-stable-diffusion — Tag 1.1.1,https://github.com/apple/ml-stable-diffusion/releases/tag/1.1.1,,0.78,"[""GitHub"",""Tag""]",New tag 1.1.1 in apple/ml-stable-diffusion.
+55,github:tag,🏷️ apple/ml-stable-diffusion — Tag 1.1.0,https://github.com/apple/ml-stable-diffusion/releases/tag/1.1.0,,0.78,"[""GitHub"",""Tag""]",New tag 1.1.0 in apple/ml-stable-diffusion.
+56,github:tag,🏷️ apple/ml-stable-diffusion — Tag 1.0.0,https://github.com/apple/ml-stable-diffusion/releases/tag/1.0.0,,0.78,"[""GitHub"",""Tag""]",New tag 1.0.0 in apple/ml-stable-diffusion.
+57,github:tag,🏷️ meta-llama/llama — Tag v2,https://github.com/meta-llama/llama/releases/tag/v2,,0.78,"[""GitHub"",""Tag""]",New tag v2 in meta-llama/llama.
+470,medium:post,Building a Healthcare Robot from Simulation to Deployment with NVIDIA Isaac,https://huggingface.co/blog/lerobotxnvidia-healthcare,2025-10-29 00:00:00+00,0.72,"[""Blog"",""HF""]",Building a Healthcare Robot from Simulation to Deployment with NVIDIA Isaac
+471,medium:post,Voice Cloning with Consent,https://huggingface.co/blog/voice-consent-gate,2025-10-28 00:00:00+00,0.72,"[""Blog"",""HF""]",Voice Cloning with Consent
+472,medium:post,Streaming datasets: 100x More Efficient,https://huggingface.co/blog/streaming-datasets,2025-10-27 00:00:00+00,0.72,"[""Blog"",""HF""]",Streaming datasets: 100x More Efficient
+473,medium:post,huggingface_hub v1.0: Five Years of Building the Foundation of Open Machine Learning,https://huggingface.co/blog/huggingface-hub-v1,2025-10-27 00:00:00+00,0.72,"[""Blog"",""HF""]",huggingface_hub v1.0: Five Years of Building the Foundation of Open Machine Learning
+474,medium:post,LeRobot v0.4.0: Supercharging OSS Robot Learning,https://huggingface.co/blog/lerobot-release-v040,2025-10-24 00:00:00+00,0.72,"[""Blog"",""HF""]",LeRobot v0.4.0: Supercharging OSS Robot Learning
+475,medium:post,Building the Open Agent Ecosystem Together: Introducing OpenEnv,https://huggingface.co/blog/openenv,2025-10-23 00:00:00+00,0.78,"[""Blog"",""HF""]",Building the Open Agent Ecosystem Together: Introducing OpenEnv
+476,medium:post,Hugging Face and VirusTotal collaborate to strengthen AI security,https://huggingface.co/blog/virustotal,2025-10-22 00:00:00+00,0.72,"[""Blog"",""HF""]",Hugging Face and VirusTotal collaborate to strengthen AI security
+477,medium:post,Sentence Transformers is joining Hugging Face!,https://huggingface.co/blog/sentence-transformers-joins-hf,2025-10-22 00:00:00+00,0.72,"[""Blog"",""HF""]",Sentence Transformers is joining Hugging Face!
+478,medium:post,Supercharge your OCR Pipelines with Open Models,https://huggingface.co/blog/ocr-open-models,2025-10-21 00:00:00+00,0.72,"[""Blog"",""HF""]",Supercharge your OCR Pipelines with Open Models
+479,medium:post,Unlock the power of images with AI Sheets,https://huggingface.co/blog/aisheets-unlock-images,2025-10-21 00:00:00+00,0.72,"[""Blog"",""HF"",""Multimodal""]",Unlock the power of images with AI Sheets
+482,github:release,🔖 pytorch/pytorch — v2.9.1,https://github.com/pytorch/pytorch/releases/tag/v2.9.1,2025-11-12 19:27:19+00,0.85,"[""GitHub"",""Release""]","PyTorch 2.9.1 Release, bug fix release"
+484,medium:post,Building for an Open Future - our new partnership with Google Cloud,https://huggingface.co/blog/google-cloud,2025-11-13 00:00:00+00,0.72,"[""Blog"",""HF""]",Building for an Open Future - our new partnership with Google Cloud
+515,github:release,🔖 kubernetes/kubernetes — v1.34.2,https://github.com/kubernetes/kubernetes/releases/tag/v1.34.2,2025-11-12 09:26:08+00,0.85,"[""GitHub"",""Release""]",Kubernetes v1.34.2
+516,github:release,🔖 kubernetes/kubernetes — v1.33.6,https://github.com/kubernetes/kubernetes/releases/tag/v1.33.6,2025-11-12 09:48:48+00,0.85,"[""GitHub"",""Release""]",Kubernetes v1.33.6
+517,github:release,🔖 kubernetes/kubernetes — v1.32.10,https://github.com/kubernetes/kubernetes/releases/tag/v1.32.10,2025-11-12 12:01:02+00,0.85,"[""GitHub"",""Release""]",Kubernetes v1.32.10
+518,github:tag,🏷️ kubernetes/kubernetes — Tag v1.35.0-alpha.3,https://github.com/kubernetes/kubernetes/releases/tag/v1.35.0-alpha.3,,0.78,"[""GitHub"",""Tag""]",New tag v1.35.0-alpha.3 in kubernetes/kubernetes.
+668,github:repo,🔥 DevPulse Mock Signal — Quantization speedup #1,https://example.com/devpulse-mock-1,2025-11-18 17:04:36.356983+00,0.9,"[""LLM"",""EdgeAI"",""Quantization""]",W4A8 adaptive quantization improves RTX 3050 inference.
+669,github:repo,🔥 DevPulse Mock Signal — Quantization speedup #1,https://example.com/devpulse-mock-1,2025-11-18 17:07:22.394796+00,0.78,"[""LLM"",""EdgeAI"",""Quantization""]",W4A8 adaptive quantization improves RTX 3050 inference.

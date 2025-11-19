@@ -1,0 +1,4 @@
+id,source_id,kind,origin_id,title,url,author,summary_raw,event_time,status,created_at,__domain__,__is_mock__
+668,1,github:repo,mock-e863c14f-0,🔥 DevPulse Mock Signal — Quantization speedup #1,https://example.com/devpulse-mock-1,devpulse,Mock raw summary to validate pipeline.,2025-11-18 17:04:36.356983+00,enriched,2025-11-18 17:04:35.39114+00,example.com,True
+669,1,github:repo,mock-744def9b-0,🔥 DevPulse Mock Signal — Quantization speedup #1,https://example.com/devpulse-mock-1,devpulse,Mock raw summary to validate pipeline.,2025-11-18 17:07:22.394796+00,enriched,2025-11-18 17:07:21.272142+00,example.com,True
+670,1,github:repo,mock-f8b93eb1-0,🔥 DevPulse Mock Signal — Quantization speedup #1,https://example.com/devpulse-mock-1,devpulse,Mock raw summary to validate pipeline.,2025-11-19 15:15:15.69359+00,enriched,2025-11-19 15:15:14.187026+00,example.com,True
