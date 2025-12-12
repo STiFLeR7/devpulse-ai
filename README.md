@@ -1,176 +1,153 @@
-# DevPulse – Automated Daily Tech Digest
+<div align="center">
 
-DevPulse is an automated **AI-powered daily tech intelligence system** that collects high‑signal information from GitHub, AI/ML frameworks, research ecosystems, and curated feeds—then converts it into a clean email digest using **FastAPI**, **background crawlers**, and an **n8n automation pipeline**.
+# ⚡ DevPulse AI
+### Automated Tech Intelligence Architecture
 
-This project is designed for engineers, researchers, and founders who want a curated snapshot of meaningful updates across AI, ML, LLMs, systems research, open‑source releases, and developer tooling—without manually checking 20+ sources.
+[![FastAPI](https://img.shields.io/badge/Backend-FastAPI-009688?style=for-the-badge&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
+[![Docker](https://img.shields.io/badge/Container-Docker-2496ED?style=for-the-badge&logo=docker&logoColor=white)](https://www.docker.com/)
+[![n8n](https://img.shields.io/badge/Orchestration-n8n-FF6584?style=for-the-badge&logo=n8n&logoColor=white)](https://n8n.io/)
+[![Python](https://img.shields.io/badge/Lang-Python_3.10+-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://www.python.org/)
+[![License](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](LICENSE)
 
----
+<p align="center">
+  <b>Automated Signal Extraction • Multi-Source Ingestion • AI-Ready Digests</b><br>
+  <i>"Stop drinking from the firehose. Start analyzing the stream."</i>
+</p>
 
-## 🚀 Features
-
-* **Full backend service (FastAPI)** to aggregate and store items
-* **Crawler/Scraper workers** for GitHub, HuggingFace, PyTorch, and future integrations
-* **Smart ranking system** using weighted heuristics & signal scoring
-* **Digest endpoint** that returns top N items for the last 24 hours
-* **n8n workflow** that generates a daily HTML email
-* **Optional LLM summarization** using Gemini / OpenAI / local LLM
-* **Production‑ready Docker Compose setup**
-* **Zero manual steps — fully automated daily delivery**
-
----
-
-## 🧠 Core Purpose
-
-DevPulse exists to solve one problem:
-
-> *"High‑quality daily updates for engineers are scattered, noisy, and time‑consuming to track manually."*
-
-Rather than consuming firehoses of GitHub notifications or reading huge changelogs, DevPulse filters and compiles:
-
-* AI model releases
-* ML library updates
-* Systems & infra changes
-* Important research connections
-* OSS ecosystem movements
-
-Then it builds a **single concise digest email** every day.
+</div>
 
 ---
 
-## 🧩 Architecture Overview
+## � The Mission
+**DevPulse** is a high-velocity intelligence engine designed to solve the **Information Overload Paradox** facing modern engineers and researchers. 
 
-```
-┌──────────────────┐     ┌──────────────────────┐
-│  Crawlers / Jobs  │ --> │  FastAPI Backend      │
-│  (GitHub, HF, etc)│     │  + SQLite/Postgres    │
-└──────────────────┘     └──────────┬───────────┘
-                                     │ /digest/json
-                                     ▼
-                        ┌────────────────────┐
-                        │  n8n Workflow       │
-                        │  (HTML + Summary)   │
-                        └──────────┬─────────┘
-                                   ▼
-                           📧 Daily Email
-```
+In an ecosystem where hundreds of papers, repositories, and releases drop daily, manual tracking is inefficient. **DevPulse** operates as an autonomous background daemon, scraping, ranking, and synthesizing high-signal updates into a single, structured daily briefing.
 
----
+## 🏗️ System Architecture
 
-## 🛠️ Tech Stack
+DevPulse employs a microservices-based crawling and scoring mesh. The system is decoupled into an ingestion layer (FastAPI), a processing layer (Scoring Engine), and a presentation layer (n8n/Email).
 
-### **Backend**
+```mermaid
+graph TD
+    subgraph Sources ["📡 Data Ingestion Layer"]
+        GH[GitHub Trends]
+        HF[HuggingFace Papers]
+        PT[PyTorch Ecosystem]
+        X[Research Feeds]
+    end
 
-* **FastAPI** – high‑performance async backend
-* **Uvicorn** – ASGI server
-* **SQLite / Postgres** – depending on deployment target
-* **Requests / httpx** – API fetches for feeds
-* **Custom scoring engine** – ranks items by relevance
+    subgraph Cortex ["🧠 Intelligence Cortex (Backend)"]
+        API[FastAPI Gateway]
+        Worker[Async Crawlers]
+        Rank[Heuristic Scoring Engine]
+        DB[(SQLite / Postgres)]
+    end
 
-### **Automation Pipeline**
+    subgraph Delivery ["🚀 Delivery Pipeline"]
+        N8N[n8n Workflow Orchestrator]
+        LLM[LLM Summarization Node]
+        Mail[HTML Digest Generator]
+    end
 
-* **n8n** (self‑hosted) – orchestrates fetching → summarization → email
-* **HTML templating** inside n8n for email layout
-* **Gemini / OpenAI API / local LLM** (optional) – summarization chain
-* **Retry and fallback mode** to bypass API outages
-
-### **Infrastructure**
-
-* **Docker & Docker Compose** – production‑ready, reproducible environment
-* **Containerized backend + n8n** in isolated network
-* **Volume‑mounted DB & logs**
-
-### **Email Delivery**
-
-* **SMTP** (Gmail / custom domain)
-* TLS-secured send
-* Minimalist HTML template with mobile‑friendly view
-
----
-
-## 📦 Project Structure
-
-```
-devpulse-ai/
-│
-├── backend/
-│   ├── main.py
-│   ├── models.py
-│   ├── database.py
-│   ├── cron_jobs/
-│   ├── collectors/ (GitHub / HF / PyTorch / etc.)
-│   ├── scoring/
-│   └── utils/
-│
-├── docker-compose.yml
-├── n8n/
-│   ├── workflows/
-│   └── credentials/
-│
-└── README.md
+    GH & HF & PT & X --> Worker
+    Worker --> Rank
+    Rank --> DB
+    DB --> API
+    N8N -->|Fetch High-Signal Items| API
+    N8N --> LLM
+    LLM --> Mail
+    Mail -->|SMTP| User((End User))
 ```
 
----
+## 🧠 Core Systems
 
-## 📬 Daily Digest Breakdown
+### 1. The Ingestion Mesh (Backend)
+Built on **FastAPI**, the backend acts as the central nervous system.
+- **Async Collectors**: Concurrent workers scrape targeted data sources (GitHub, HF, etc.) without blocking the main event loop.
+- **Normalization**: Diverse data formats (JSON, RSS, HTML) are normalized into a unified `Item` schema.
+- **Resilience**: Implements retry logic and error bounding for external APIs.
 
-Each email contains:
+### 2. Heuristic Scoring Engine
+Data is meaningless without prioritization. DevPulse implements a custom ranking algorithm:
+- **Velocity Tracking**: Measures "stars per hour" or "fork velocity" for GitHub repos.
+- **Impact Weighting**: Up-ranks major version releases (e.g., `v2.0` > `v2.0.1`).
+- **Keyword Resonance**: Boosts items matching "LLM", "Agent", "Transformer" (configurable).
 
-* Date header
-* Curated updates ranked by score
-* Release titles & links
-* Tags for quick scanning (GitHub, Release, HF, Framework, Research)
-* Optional LLM‑generated summary paragraph
-* Simple clean HTML layout
+### 3. Orchestration & Delivery (n8n)
+We utilize **n8n** for flexible, low-code workflow orchestration:
+- **Decoupled Logic**: The backend provides raw data; n8n handles the "business logic" of presentation.
+- **AI Integration**: Plug-and-play nodes for Gemini/OpenAI to generate executive summaries of the day's data.
+- **HTML Injection**: Generates clean, mobile-responsive email layouts dynamically.
 
----
+## �️ Tech Stack Specifications
 
-## ▶️ Running Locally
+| Component | Technology | Role |
+|-----------|------------|------|
+| **Core Service** | Python 3.10+, FastAPI | API, Data Processing, Scheduling |
+| **Server** | Uvicorn (ASGI) | High-performance async server |
+| **Persistence** | SQLite / Postgres (SQLAlchemy) | Relational storage of tech items |
+| **Networking** | HTTPX | Non-blocking external requests |
+| **Orchestrator** | n8n (Dockerized) | Workflow automation & email delivery |
+| **Infrastructure** | Docker Compose | Service definition & networking |
 
-### Start all services
+## � Deployment Sequence
 
+Deploying DevPulse is designed to be a "zero-friction" operation.
+
+### Prerequisites
+- Docker Engine & Docker Compose
+- *Optional:* OpenAI/Gemini API Key (for summaries)
+
+### Installation
+
+1.  **Clone the Repository**
+    ```bash
+    git clone https://github.com/yourusername/devpulse-ai.git
+    cd devpulse-ai
+    ```
+
+2.  **Initialize Environment**
+    ```bash
+    cp .env.example .env
+    # Edit .env to configure your scraper targets and API keys
+    ```
+
+3.  **Ignite Services**
+    ```bash
+    docker compose up -d --build
+    ```
+
+    > **Status Report:**  
+    > 🟢 Backend: `http://localhost:8000`  
+    > 🟢 n8n Workflow: `http://localhost:5678`
+
+## 🕹️ API & Usage
+
+The backend exposes a clean REST interface. You can integrate DevPulse into your own dashboards.
+
+**Identify Top 10 High-Signal Items:**
+```bash
+curl "http://localhost:8000/digest/json?limit=10&threshold=0.8"
 ```
-docker compose up -d --build
+
+**Force Trigger Crawl (Admin):**
+```bash
+curl -X POST "http://localhost:8000/admin/crawl"
 ```
 
-Backend will run on: **[http://127.0.0.1:8000](http://127.0.0.1:8000)**
-n8n will run on: **[http://127.0.0.1:5678](http://127.0.0.1:5678)**
+## 🔭 Future Horizons
 
-### Test the digest
+DevPulse is evolving from **Passive Collection** to **Active Agentic Analysis**.
 
-```
-curl http://127.0.0.1:8000/digest/json?limit=50
-```
-
----
-
-## 🌐 Deployment Notes
-
-* Works on any VM with Docker (Render, GCP, AWS, Hetzner)
-* Can scale to Postgres for heavier workloads
-* n8n can be put behind a reverse proxy (Caddy / Nginx)
-* SMTP should ideally use an App Password (Gmail) or a domain provider
+- [ ] **Vector Database Integration**: Store embeddings of Readmes/Papers for semantic search.
+- [ ] **Agentic Research**: "DevPulse, find me all new transformer architectures released this week."
+- [ ] **Personalized Filtering**: Per-user interest graphs (e.g., "Only Computer Vision").
 
 ---
 
-## 🧭 Roadmap
+<div align="center">
 
-* Medium / ArXiv / RSS ingestion
-* Daily GitHub trending analysis
-* Repository health scoring
-* ML‑specific distillation of research papers
-* Agentic enrichment using structured LLM chains
-* Multi‑user digest with preferences
-* DevPulse v3 with full-scale AI summarization modes
+**[View Implementation Plan](implementation_plan.md)** • **[Report Bug](issues)**
 
----
-
-## 📄 License
-
-MIT License
-
----
-
-## 💡 Final Note
-
-DevPulse is designed to be a **developer-first intelligence tool**.
-Simple, fast, signal‑rich, and production-ready out of the box.
+Designed with ❤️ for the Builders.
+</div>
